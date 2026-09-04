@@ -606,7 +606,7 @@ def test_quien_solo_pasa_caminando_no_genera_ninguna_interaccion(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# APPROACH y alcance a menos de un refractario: comportamiento ACTUAL
+# APPROACH y alcance a menos de un refractario: relojes SEPARADOS
 # --------------------------------------------------------------------------
 
 def visita_con_alcance_en(frame_alcance, n=140, **kw) -> list[Event]:
@@ -621,31 +621,32 @@ def visita_con_alcance_en(frame_alcance, n=140, **kw) -> list[Event]:
     ]
 
 
-def test_un_alcance_a_menos_de_un_refractario_del_approach_se_pierde(tmp_path):
-    """COMPORTAMIENTO ACTUAL CONOCIDO, no una propiedad deseada.
+def test_un_alcance_a_menos_de_un_refractario_del_approach_ya_no_se_pierde(tmp_path):
+    """El lider decidio separar el refractorio por tipo de evento: este test
+    documenta el cambio (ver `EstadoTrack.t_ultimo_approach` /
+    `t_ultimo_alcance` y el docstring de `_emitir` en interact.py).
 
-    El periodo refractario es GLOBAL por track_id: cuenta desde el ultimo
-    evento emitido, sea del tipo que sea. Asi que un APPROACH deja al track
-    mudo durante REFRACTARIO_S, y si la persona alcanza el estante dentro de
-    ese segundo -que es exactamente lo que hace alguien que se para frente a
-    una gondola y toma algo-, el alcance se descarta.
+    ANTES el refractorio era GLOBAL por track_id: contaba desde el ultimo
+    evento emitido, sea del tipo que sea. Un APPROACH dejaba al track mudo
+    durante REFRACTARIO_S, y si la persona alcanzaba el estante dentro de ese
+    segundo -que es exactamente lo que hace alguien que se para frente a una
+    gondola y toma algo- el alcance se descartaba.
 
-    ESTO PASO DE VERDAD: en `video_001` es la razon de que salgan 0 PICK_UP.
-    El unico episodio que supero los filtros fisicos (track 9, pico en
-    t=98,17 s, 0,300 s de duracion, pies quietos) cayo 0,83 s despues del
-    APPROACH de su propio track y se perdio ahi.
-
-    El test fija ese comportamiento para que el dia que el lider decida si el
-    refractorio se separa por tipo de evento, quede constancia de que cambio
-    a proposito y no por accidente. La fase 3 no toca esa logica.
+    ESTO PASO DE VERDAD: en `video_001` era la razon de que salieran 0
+    PICK_UP. El unico episodio que supero los filtros fisicos (track 9, pico
+    en t=98,17 s, 0,300 s de duracion, pies quietos) cayo 0,83 s despues del
+    APPROACH de su propio track y se perdia ahi -confirmado ademas viendo el
+    frame del video: la persona esta con la canasta, brazo estirado al
+    estante-. Con los relojes separados, ese mismo caso ahora SI emite el
+    PICK_UP.
     """
     eventos = visita_con_alcance_en(FRAME_DEL_APPROACH + 5)  # pico 0,33 s despues
     salida, resumen = procesar(tmp_path, eventos)
 
-    assert interacciones(salida) == [(FRAME_DEL_APPROACH, "APPROACH")]
-    assert resumen.episodios_candidatos == 1  # el gesto SI se detecto
-    assert resumen.descartados_por_refractario == 1  # y se tiro aqui
-    assert resumen.pick_up == 0
+    assert [tipo for _frame, tipo in interacciones(salida)] == ["APPROACH", "PICK_UP"]
+    assert resumen.episodios_candidatos == 1
+    assert resumen.descartados_por_refractario == 0  # ya no lo tapa el APPROACH
+    assert resumen.pick_up == 1
 
 
 def test_el_mismo_alcance_pasado_el_refractario_si_sale(tmp_path):

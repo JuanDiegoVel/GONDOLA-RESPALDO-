@@ -435,7 +435,11 @@ class EstadoTrack:
     approach_emitido: bool = False
     alcances_en_visita: int = 0
 
-    t_ultimo_evento: float | None = None  # para el periodo refractario
+    # Relojes SEPARADOS a proposito (ver "BUG CORREGIDO" en el docstring del
+    # modulo): un APPROACH no puede tapar el PICK_UP/PUT_BACK que llega justo
+    # despues, ni al reves.
+    t_ultimo_approach: float | None = None
+    t_ultimo_alcance: float | None = None
 
 
 @dataclass
@@ -509,12 +513,11 @@ def _actualizar_visita(estado: EstadoTrack, muestra: Muestra) -> None:
     estado.dwell_previo = muestra.dwell
 
 
-def _en_refractario(estado: EstadoTrack, t: float) -> bool:
-    """True si este track emitio un evento hace menos de REFRACTARIO_S."""
-    return (
-        estado.t_ultimo_evento is not None
-        and t - estado.t_ultimo_evento < REFRACTARIO_S
-    )
+def _en_refractario(estado: EstadoTrack, t: float, ultimo: float | None) -> bool:
+    """True si ESE reloj (aprox. o alcance, segun se le pase) emitio hace
+    menos de REFRACTARIO_S. Ver `EstadoTrack.t_ultimo_approach` /
+    `t_ultimo_alcance`: son relojes separados a proposito."""
+    return ultimo is not None and t - ultimo < REFRACTARIO_S
 
 
 def _emitir(
@@ -523,7 +526,8 @@ def _emitir(
     evento: InteractionEvent,
     categorias: dict[tuple[str, str], str | None],
 ) -> None:
-    """Escribe la interaccion en el evento y arranca el periodo refractario.
+    """Escribe la interaccion en el evento y arranca el periodo refractario
+    QUE LE CORRESPONDE a este tipo de evento.
 
     `product_zone` solo se rellena aqui, junto con `event`: nunca uno sin el
     otro. La tabla `events` de `backend/database/schema.sql` acepta un
@@ -531,11 +535,26 @@ def _emitir(
     significa nada -toda persona esta siempre "frente a" alguna categoria-.
     Que sea `null` cuando el estante no declaro categoria si es correcto: la
     columna lo permite y el dato de verdad no existe.
+
+    BUG CORREGIDO: antes habia un solo reloj (`t_ultimo_evento`) compartido
+    entre APPROACH y PICK_UP/PUT_BACK. Un APPROACH se dispara justo cuando
+    `dwell_time` cruza el umbral de "se detiene" (UMBRAL_SE_DETIENE_S), que
+    en la practica cae MUY cerca en el tiempo del momento en que la persona
+    empieza a alcanzar el estante. Con un solo reloj, ese APPROACH consumia
+    el REFRACTARIO_S entero y tapaba el PICK_UP real que llegaba detras.
+    Confirmado con video_001: en el frame del track 9, el APPROACH salio a
+    los 97.33s y el unico episodio que sobrevivio geometricamente (visible a
+    ojo en el video: la persona con la canasta estirando el brazo al
+    estante) tuvo su pico a los 98.17s -0.84s despues, dentro del segundo de
+    refractario- y se perdio sin dejar rastro salvo el contador de descarte.
     """
     muestra.evento.interaction.event = evento
     if muestra.zona is not None:
         muestra.evento.interaction.product_zone = categorias.get(muestra.zona)
-    estado.t_ultimo_evento = muestra.t
+    if evento is InteractionEvent.APPROACH:
+        estado.t_ultimo_approach = muestra.t
+    else:
+        estado.t_ultimo_alcance = muestra.t
 
 
 def _cerrar_episodio(
@@ -578,7 +597,7 @@ def _cerrar_episodio(
         resumen.descartados_por_sin_zona += 1
         return
 
-    if _en_refractario(estado, pico.t):
+    if _en_refractario(estado, pico.t, estado.t_ultimo_alcance):
         resumen.descartados_por_refractario += 1
         return
 
@@ -618,7 +637,7 @@ def _avanzar(
     ):
         resumen.approach_candidatos += 1
         estado.approach_emitido = True  # uno por visita, se emita o no
-        if _en_refractario(estado, muestra.t):
+        if _en_refractario(estado, muestra.t, estado.t_ultimo_approach):
             resumen.approach_descartados_por_refractario += 1
         else:
             _emitir(estado, muestra, InteractionEvent.APPROACH, categorias)
