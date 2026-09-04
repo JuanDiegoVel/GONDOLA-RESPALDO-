@@ -37,21 +37,49 @@ que proteger ni un origen externo del que cuidarse.
 
 from __future__ import annotations
 
+import os
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from psycopg.errors import Error as PsycopgError
 
 import db
+
+# RENDER_DIR (mas abajo) es la unica variable de entorno propia de api.py:
+# se carga aqui, aparte de db._cargar_env(), porque esa funcion es privada
+# de db.py y este archivo necesita el valor ANTES de la primera consulta a
+# PostgreSQL (que es cuando db.py cargaria backend/.env por su cuenta).
+# dotenv.load_dotenv() no pisa una variable que el sistema ya tenga puesta,
+# asi que llamarlo aqui y de nuevo desde db.py es seguro, no se pisan.
+from dotenv import load_dotenv
+
+load_dotenv(db.BACKEND_DIR / ".env")
 
 app = FastAPI(
     title="Gondola Inteligente - API",
     description="Metricas de flujo, permanencia e interaccion frente a las gondolas.",
     version="1.0.0",
+)
+
+# Carpeta donde el AI Service deja los videos renderizados (RENDER_MODE en
+# ai-service/.env). Por defecto <raiz del repo>/data/output -mismo OUTPUT_DIR
+# que usa gondola/config.py-, mas RENDER_DIR en backend/.env por si alguien
+# corre la API desde otra maquina con los datos en otro lado.
+#
+# Esto SI es una excepcion puntual a "el backend solo lee lo que el AI
+# Service pone en PostgreSQL" (ver docstring de arriba y
+# docs/architecture.md): un video renderizado es un archivo estatico que
+# nunca pasa por la base de datos, no un dato para agregar/consultar. Si en
+# vez de esto se copiara el video a una tabla, se estaria guardando binarios
+# de varios MB en PostgreSQL sin ninguna necesidad.
+RENDER_DIR = Path(
+    os.environ.get("RENDER_DIR")
+    or (Path(__file__).resolve().parent.parent / "data" / "output")
 )
 
 app.add_middleware(
@@ -170,6 +198,8 @@ def metricas_de_zona(video_id: str, zone_id: str) -> dict[str, Any]:
             ),
         )
     return _serializable(fila)
+
+
 @app.get("/videos/{video_id}/zones")
 def jerarquia_de_zonas(video_id: str) -> list[dict[str, Any]]:
     """Góndolas y estantes con métricas en este video, con su jerarquía
@@ -178,4 +208,49 @@ def jerarquia_de_zonas(video_id: str) -> list[dict[str, Any]]:
     with db.get_connection() as conn:
         _requiere_video(conn, video_id)
         filas = db.list_zones_for_video(conn, video_id)
+    return [_serializable(f) for f in filas]
+
+
+@app.get("/videos/{video_id}/render")
+def video_renderizado(video_id: str) -> FileResponse:
+    """El video ya procesado por el AI Service en modo `privacy`: fondo gris
+    inventado (nunca el fotograma real, ver ai-service/gondola/video/render.py)
+    con los rectangulos de deteccion. Es lo unico de esta API que no sale de
+    PostgreSQL -ver el comentario de RENDER_DIR, mas arriba-.
+
+    Prefiere el render de la etapa 'interact' (resalta el instante exacto de
+    cada APPROACH/PICK_UP/PUT_BACK, ver gondola/stages/interact.py) sobre el
+    de 'track' (solo cajas + ID de seguimiento, sin interacciones: esa etapa
+    corre ANTES de que existan). Cae a 'track' si un video se proceso antes
+    de que 'interact' supiera renderizar, para no dejar sin video a nadie
+    que ya lo tenia importado.
+
+    Devuelve 404 si el video no tiene NINGUNO de los dos en disco: no todos
+    lo tienen (RENDER_MODE=none corre mas rapido, o alguien pudo borrar
+    data/output/ con 'python -m gondola purge' despues de importar)."""
+    ruta = RENDER_DIR / f"{video_id}.interact.privacy.mp4"
+    if not ruta.exists():
+        ruta = RENDER_DIR / f"{video_id}.track.privacy.mp4"
+    if not ruta.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"El video '{video_id}' no tiene un render 'privacy' en disco "
+                f"({ruta}). Que hacer: corre 'python -m gondola run' con "
+                "RENDER_MODE=privacy en ai-service/.env para ese video."
+            ),
+        )
+    return FileResponse(ruta, media_type="video/mp4")
+
+
+@app.get("/videos/{video_id}/positions")
+def posiciones_del_video(video_id: str) -> list[dict[str, Any]]:
+    """El punto de apoyo (x, y en píxeles del frame) de cada evento del
+    video: la materia prima de un mapa de calor real (densidad espacial),
+    no un agregado por zona. Puede ser una lista larga (miles de puntos en
+    un video de varios minutos) — es solo lectura, sin paginar: para los
+    tamaños de este proyecto el JSON se sigue sirviendo en milisegundos."""
+    with db.get_connection() as conn:
+        _requiere_video(conn, video_id)
+        filas = db.positions_for_video(conn, video_id)
     return [_serializable(f) for f in filas]

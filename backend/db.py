@@ -349,3 +349,30 @@ def metrics_by_zone(conn: psycopg.Connection, video_id: str, zone_id: str) -> di
         """,
         {"video_id": video_id, "zone_id": zone_id},
     ).fetchone()
+
+
+def positions_for_video(conn: psycopg.Connection, video_id: str) -> list[dict[str, Any]]:
+    """El punto de apoyo (los pies) de cada evento del video, en pixeles del
+    frame original. Es la materia prima de un mapa de calor REAL (densidad
+    espacial continua): sin esto, un "mapa de calor" es solo una tarjeta
+    coloreada por conteo agregado, no una densidad de verdad sobre el plano
+    de la tienda.
+
+    Mismo punto de apoyo que usa el resto del pipeline para ubicar a una
+    persona en el piso (ver `BBox.support_point` en
+    `ai-service/gondola/contract.py`): el centro del borde inferior de la
+    caja, nunca su centro geometrico (que "flotaria" a la altura del pecho).
+    Se calcula en SQL, no en Python, para no traer bbox_width/bbox_height
+    sueltos y repetir la aritmetica en cada capa.
+    """
+    return conn.execute(
+        """
+        SELECT
+            (e.bbox_x + e.bbox_width / 2) AS x,
+            (e.bbox_y + e.bbox_height)    AS y
+        FROM events e
+        JOIN videos v ON v.id = e.video_id
+        WHERE v.video_id = %(video_id)s
+        """,
+        {"video_id": video_id},
+    ).fetchall()
