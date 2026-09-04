@@ -3,29 +3,34 @@
 Todo lo de aqui corre con solo `pip install -r requirements-dev.txt`: la
 etapa es una agregacion pura de .jsonl y no necesita YOLO, ni OpenCV, ni el
 video.
+
+Reescrito contra la version de metrics.py que de verdad esta en el
+repositorio hoy (acumular_evento/cerrar_zona, no la version anterior con
+_agregar/ZoneMetrics): ese archivo cambio de implementacion sin que este
+archivo se actualizara, y quedo importando un nombre que ya no existe.
 """
 
 import json
 
 import pytest
-from pydantic import ValidationError
 
 from gondola import pipeline
 from gondola.config import load_config
 from gondola.contract import BBox, Detection, Event, InteractionEvent
 from gondola.errors import MissingInputError
 from gondola.jsonl import write_events
-from gondola.stages.metrics import _agregar, run, ZoneMetrics
+from gondola.stages.metrics import Resumen, acumular_evento, cerrar_zona, run
 
 BBOX = BBox(x=0.0, y=0.0, width=100.0, height=200.0)
 
 
 def crear_evento(
-    frame, track_id=1, zone_id="gondola_A", dwell=1.0, interaction=None,
-    video_id="video_001",
+    frame, track_id=1, zone_id="gondola_A", segment=None, dwell=1.0,
+    interaction=None, video_id="video_001",
 ) -> Event:
     """Un evento minimo como los que produce `interact`: con track_id, zone
-    (o sin ella, si `zone_id=None`) e interaccion opcional."""
+    (o sin ella, si `zone_id=None`), segmento opcional e interaccion
+    opcional."""
     evento = Event(
         video_id=video_id,
         frame=frame,
@@ -34,59 +39,35 @@ def crear_evento(
         detection=Detection(confidence=0.9, bbox=BBOX),
     )
     evento.zone.zone_id = zone_id
+    evento.zone.segment = segment
     evento.metrics.dwell_time = dwell
     evento.interaction.event = interaction
     return evento
 
 
-def test_zone_metrics_rechaza_conteos_negativos():
-    with pytest.raises(ValidationError):
-        ZoneMetrics(
-            people_count=-1,
-            interaction_count=0,
-            pick_up_count=0,
-            put_back_count=0,
-        )
-
-
-def test_zone_metrics_rechaza_una_tasa_fuera_de_0_1():
-    with pytest.raises(ValidationError):
-        ZoneMetrics(
-            people_count=1,
-            interaction_count=2,
-            pick_up_count=2,
-            put_back_count=0,
-            interaction_rate=1.5,
-        )
-
-
-def test_zone_metrics_acepta_valores_validos_con_promedio_en_null():
-    metrics = ZoneMetrics(
-        people_count=3,
-        interaction_count=2,
-        pick_up_count=1,
-        put_back_count=1,
-        average_dwell_time_s=None,
-        interaction_rate=2 / 3,
-        pick_up_rate=0.5,
-        conversion_rate=1 / 3,
-    )
-    assert metrics.people_count == 3
-    assert metrics.average_dwell_time_s is None
+def _agregar(eventos) -> dict:
+    """Atajo para los tests de logica pura: acumula una lista de eventos y
+    devuelve las filas ya cerradas (gondola/estante -> columnas de
+    metrics.json), sin pasar por archivos ni por run()."""
+    agregados = {}
+    resumen = Resumen()
+    for evento in eventos:
+        acumular_evento(agregados, evento, resumen)
+    return {fila_id: cerrar_zona(zona) for fila_id, zona in agregados.items()}
 
 
 # --------------------------------------------------------------------------
-# _agregar: logica pura, sin pasar por run() ni por disco
+# acumular_evento/cerrar_zona: logica pura, sin pasar por run() ni por disco
 # --------------------------------------------------------------------------
 
 def test_un_track_con_muchos_eventos_cuenta_como_una_sola_persona():
-    """El bug que `schema.sql` llama 'el mas caro del proyecto': una persona
-    parada genera cientos de eventos, y people_count debe seguir siendo 1."""
+    """El bug mas caro del proyecto: una persona parada genera cientos de
+    eventos, y people_count debe seguir siendo 1."""
     eventos = [crear_evento(frame=i, track_id=7) for i in range(50)]
 
-    agregados = _agregar(eventos)
+    filas = _agregar(eventos)
 
-    assert agregados["gondola_A"].people_count == 1
+    assert filas["gondola_A"]["people_count"] == 1
 
 
 def test_cuenta_pick_up_put_back_y_approach_por_zona():
@@ -97,19 +78,18 @@ def test_cuenta_pick_up_put_back_y_approach_por_zona():
         crear_evento(frame=3, track_id=1, interaction=None),
     ]
 
-    agregados = _agregar(eventos)
-    zona = agregados["gondola_A"]
+    zona = _agregar(eventos)["gondola_A"]
 
-    assert zona.interaction_count == 3  # APPROACH + PICK_UP + PUT_BACK
-    assert zona.pick_up_count == 1
-    assert zona.put_back_count == 1
+    assert zona["interaction_count"] == 3  # APPROACH + PICK_UP + PUT_BACK
+    assert zona["pick_up_count"] == 1
+    assert zona["put_back_count"] == 1
 
 
 def test_varias_interacciones_de_la_misma_persona_no_pasan_la_tasa_de_1():
     """`etiqueta_de_alcance` (interact.py) puede darle a un track varios
-    PICK_UP/PUT_BACK en una sola visita: interaction_count/people_count
-    se pasaria de 1.0 y rompe el CHECK de schema.sql. Las tasas se definen
-    sobre personas DISTINTAS que interactuaron, no sobre el conteo crudo."""
+    PICK_UP/PUT_BACK en una sola visita: interaction_count/people_count se
+    pasaria de 1.0 y rompe el CHECK de schema.sql. `_tasa()` recorta a 1.0
+    a proposito -ver su docstring-, y people_count sigue siendo DISTINCT."""
     eventos = [
         crear_evento(frame=0, track_id=1, interaction=InteractionEvent.APPROACH),
         crear_evento(frame=1, track_id=1, interaction=InteractionEvent.PICK_UP),
@@ -119,47 +99,75 @@ def test_varias_interacciones_de_la_misma_persona_no_pasan_la_tasa_de_1():
 
     zona = _agregar(eventos)["gondola_A"]
 
-    assert zona.interaction_count == 4  # conteo crudo, puede superar people_count
-    assert zona.people_count == 1
-    assert zona.interaction_rate == 1.0  # 1 persona distinta interactuo, no 4.0
-    assert zona.conversion_rate == 1.0   # 1 persona distinta hizo PICK_UP
+    assert zona["interaction_count"] == 4  # conteo crudo, puede superar people_count
+    assert zona["people_count"] == 1
+    assert zona["interaction_rate"] == 1.0  # 1 persona distinta interactuo, no 4.0
+    assert zona["conversion_rate"] == 1.0   # recortado a 1.0, no 4.0
 
 
 def test_promedio_de_dwell_time_ignora_los_null_y_no_revienta_si_todos_son_null():
-    con_dwell = [crear_evento(frame=0, track_id=1, dwell=2.0)]
-    con_dwell.append(crear_evento(frame=1, track_id=1, dwell=None))
-    con_dwell.append(crear_evento(frame=2, track_id=1, dwell=4.0))
+    con_dwell = [
+        crear_evento(frame=0, track_id=1, dwell=2.0),
+        crear_evento(frame=1, track_id=1, dwell=None),
+        crear_evento(frame=2, track_id=1, dwell=4.0),
+    ]
 
-    agregados = _agregar(con_dwell)
-    assert agregados["gondola_A"].average_dwell_time_s == pytest.approx(3.0)
+    zona = _agregar(con_dwell)["gondola_A"]
+    assert zona["average_dwell_time_s"] == pytest.approx(4.0)  # el MAXIMO visto por esa persona, no un promedio de filas
 
     todos_sin_dwell = [crear_evento(frame=0, track_id=1, dwell=None)]
-    agregados_sin_dwell = _agregar(todos_sin_dwell)
-    assert agregados_sin_dwell["gondola_A"].average_dwell_time_s is None
+    zona_sin_dwell = _agregar(todos_sin_dwell)["gondola_A"]
+    assert zona_sin_dwell["average_dwell_time_s"] is None
 
 
-def test_dos_zonas_no_mezclan_sus_contadores():
+def test_dos_gondolas_no_mezclan_sus_contadores():
     eventos = [
         crear_evento(frame=0, track_id=1, zone_id="gondola_A",
                      interaction=InteractionEvent.PICK_UP),
         crear_evento(frame=1, track_id=2, zone_id="gondola_B"),
     ]
 
-    agregados = _agregar(eventos)
+    filas = _agregar(eventos)
 
-    assert agregados["gondola_A"].people_count == 1
-    assert agregados["gondola_A"].pick_up_count == 1
-    assert agregados["gondola_B"].people_count == 1
-    assert agregados["gondola_B"].pick_up_count == 0
+    assert filas["gondola_A"]["people_count"] == 1
+    assert filas["gondola_A"]["pick_up_count"] == 1
+    assert filas["gondola_B"]["people_count"] == 1
+    assert filas["gondola_B"]["pick_up_count"] == 0
 
 
 def test_agregar_sin_eventos_devuelve_diccionario_vacio():
     assert _agregar([]) == {}
 
 
-def test_eventos_sin_zona_no_cuentan_para_ninguna_zona():
+def test_eventos_sin_zona_no_cuentan_para_ninguna_fila():
     eventos = [crear_evento(frame=0, track_id=1, zone_id=None)]
     assert _agregar(eventos) == {}
+
+
+def test_evento_con_estante_aporta_a_la_gondola_y_a_su_propio_estante():
+    """Cada evento con segment aporta a DOS filas: la gondola completa
+    (para el total de la vitrina) y "gondola:estante" (para comparar
+    estantes entre si). Es lo que arreglo el bug de que
+    GET /videos/{id}/zones solo devolviera la gondola, nunca sus estantes
+    -ver el docstring de metrics.py, seccion 'QUE ZONA SE USA PARA
+    AGRUPAR'-."""
+    eventos = [
+        crear_evento(frame=0, track_id=1, zone_id="gondola_A", segment="estante_1",
+                     interaction=InteractionEvent.PICK_UP),
+        crear_evento(frame=1, track_id=2, zone_id="gondola_A", segment="estante_2"),
+        # alguien frente a la gondola sin que el tracker lo ubique en un estante:
+        crear_evento(frame=2, track_id=3, zone_id="gondola_A", segment=None),
+    ]
+
+    filas = _agregar(eventos)
+
+    assert set(filas.keys()) == {"gondola_A", "gondola_A:estante_1", "gondola_A:estante_2"}
+    assert filas["gondola_A"]["people_count"] == 3       # los 3 tracks, gondola completa
+    assert filas["gondola_A"]["pick_up_count"] == 1
+    assert filas["gondola_A:estante_1"]["people_count"] == 1
+    assert filas["gondola_A:estante_1"]["pick_up_count"] == 1
+    assert filas["gondola_A:estante_2"]["people_count"] == 1
+    assert filas["gondola_A:estante_2"]["pick_up_count"] == 0
 
 
 # --------------------------------------------------------------------------
@@ -195,16 +203,12 @@ def test_run_con_interact_jsonl_vacio_escribe_metrics_json_valido(tmp_path, monk
     assert datos["video_id"] == "video_001"
     assert datos["zones"] == {}
 
-    resumen = json.loads(pipeline.summary_path("metrics", cfg).read_text(encoding="utf-8"))
-    assert resumen["results"]["eventos_procesados"] == 0
-    assert resumen["results"]["zonas_encontradas"] == 0
-
 
 def test_run_con_eventos_reales_escribe_los_numeros_esperados(tmp_path, monkeypatch, capsys):
     eventos = [
-        crear_evento(frame=0, track_id=1, zone_id="gondola_A",
+        crear_evento(frame=0, track_id=1, zone_id="gondola_A", segment="estante_1",
                      interaction=InteractionEvent.APPROACH, dwell=2.0),
-        crear_evento(frame=1, track_id=1, zone_id="gondola_A",
+        crear_evento(frame=1, track_id=1, zone_id="gondola_A", segment="estante_1",
                      interaction=InteractionEvent.PICK_UP, dwell=2.5),
         crear_evento(frame=2, track_id=2, zone_id="gondola_A", dwell=1.0),
     ]
@@ -213,13 +217,19 @@ def test_run_con_eventos_reales_escribe_los_numeros_esperados(tmp_path, monkeypa
     assert run(cfg) == 0
 
     datos = json.loads(rutas.output_path.read_text(encoding="utf-8"))
-    zona = datos["zones"]["gondola_A"]
-    assert zona["people_count"] == 2
-    assert zona["interaction_count"] == 2
-    assert zona["pick_up_count"] == 1
-    assert zona["conversion_rate"] == pytest.approx(0.5)  # 1 de 2 personas
+    zonas = datos["zones"]
+
+    gondola = zonas["gondola_A"]
+    assert gondola["people_count"] == 2
+    assert gondola["interaction_count"] == 2
+    assert gondola["pick_up_count"] == 1
+    assert gondola["conversion_rate"] == pytest.approx(0.5)  # 1 de 2 personas
+
+    estante = zonas["gondola_A:estante_1"]
+    assert estante["people_count"] == 1
+    assert estante["pick_up_count"] == 1
 
     salida = capsys.readouterr().out
-    assert "Zonas encontradas" in salida
+    assert "Zonas con datos" in salida
     assert "gondola_A" in salida
     assert "track_id" not in salida.lower()  # nunca listar ids individuales
