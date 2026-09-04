@@ -25,6 +25,7 @@
   };
 </script>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/build/heatmap.min.js"></script>
 <style>
   .shadow-xs { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04); }
   .focus\:outline-hidden:focus { outline: none; }
@@ -77,6 +78,19 @@
 <body class="app-bg text-[#2F3437] antialiased">
 <div id="root" class="min-h-screen flex flex-col"></div>
 
+<!-- "Portal" del reproductor de video: vive FUERA de #root a proposito.
+     #root se reconstruye entero (root.innerHTML = ...) en cada render(), y
+     eso incluye cualquier nodo que estuviera adentro -un <video> a mitad de
+     descargar 15+ MB se interrumpe si su nodo se destruye, aunque sea por
+     una fraccion de segundo, y el navegador lo reporta como error aunque el
+     servidor haya respondido bien (bug real, visto en DevTools: 3 peticiones
+     /render con 206 cada una, todas interrumpidas). Este div se posiciona
+     por JS (ver initVideoPlayer()) exactamente encima del hueco que deja
+     el placeholder dentro de #root, pero el <video> en si nunca vive ahi
+     adentro: nunca se destruye por un render(), sin importar cuantos
+     ocurran mientras esta cargando. -->
+<div id="video-player-portal" hidden style="position:absolute; z-index:5;"></div>
+
 <script>
 // ============================================================================
 // GONDOLA INTELIGENTE - Dashboard (Persona 7: Datos, API y Dashboard).
@@ -105,7 +119,7 @@
 //    dejar la columna izquierda solo para datos crudos (tabla + mapa).
 // ============================================================================
 
-const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000';
+const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8010';
 
 // --------------------------------------------------------------------------
 // Formateo: convierten numeros/fechas crudas de la API en texto legible.
@@ -135,7 +149,29 @@ function calculateRejectionRate(putBack, pickUp) {
   const rate = putBack / pickUp;
   return { rate, label: `${(rate * 100).toFixed(1)}%`, explanation: `${putBack} de ${pickUp} tomas devueltas` };
 }
+// Los unicos video_id que de verdad pasaron por el pipeline completo
+// (YOLO + tracking + zonas + interact + metrics) y no son un dato de
+// prueba armado a mano. No hay forma de derivar esto de la respuesta de
+// la API (video_demo_001/video_demo_002, por ejemplo, SI estan en
+// PostgreSQL pero se insertaron a mano al principio del proyecto para
+// probar la conexion API<->base de datos, no corriendo el pipeline), asi
+// que esta lista se mantiene aqui, a mano, cada vez que se importa un
+// video real nuevo (ver frontend/README.md, seccion de datos MERL).
+const VIDEOS_REALES_CONOCIDOS = new Set([
+  'video_001',
+  'video_demo_merl_24_3',
+  'video_demo_merl_15_3',
+  'video_demo_merl_39_1',
+  'video_demo_merl_18_3',
+  'video_demo_merl_36_1',
+]);
+
 function isDemoVideo(videoId) {
+  // "PRUEBA" es para los datos inventados a mano (MOCK_VIDEOS y compania,
+  // mas abajo, cuando el modo demo esta prendido) Y para los que la API
+  // real devuelve pero no estan en VIDEOS_REALES_CONOCIDOS (fixtures viejos
+  // de prueba que quedaron en la base de datos, ver el comentario arriba).
+  if (!state.useMockMode) return !VIDEOS_REALES_CONOCIDOS.has(videoId);
   return videoId.toLowerCase().startsWith('video_demo_');
 }
 function formatDuration(durationSeconds) {
@@ -178,6 +214,45 @@ const MOCK_ZONE_HIERARCHY = {
   ],
   video_demo_cabecera: [
     { zone_id: 'cabecera_isla', name: 'Isla de Oferta Estacional', level: 'gondola', product_category: null, parent_zone_id: null },
+  ],
+};
+
+// Puntos de apoyo (pies) sinteticos para el mapa de calor real en modo demo:
+// mismo formato que devuelve GET /videos/{id}/positions ({x,y} en pixeles
+// del frame), agrupados en "manchas" alrededor de puntos calientes
+// inventados (frente a un estante, cerca de una cabecera) en vez de
+// esparcidos uniformemente, para que la densidad se vea creible.
+function _mancha(cx, cy, spreadX, spreadY, n, seed) {
+  const puntos = [];
+  let s = seed;
+  const azar = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  for (let i = 0; i < n; i++) {
+    const u1 = azar() || 1e-6;
+    const u2 = azar();
+    const radio = Math.sqrt(-2 * Math.log(u1));
+    const angulo = 2 * Math.PI * u2;
+    puntos.push({
+      x: Math.round(cx + radio * Math.cos(angulo) * spreadX),
+      y: Math.round(cy + radio * Math.sin(angulo) * spreadY),
+    });
+  }
+  return puntos;
+}
+const MOCK_POSITIONS = {
+  video_001: [
+    ..._mancha(300, 420, 70, 60, 60, 7),
+    ..._mancha(620, 380, 90, 70, 50, 13),
+    ..._mancha(180, 200, 50, 50, 25, 21),
+  ],
+  video_demo_pasillo_01: [
+    ..._mancha(1350, 300, 140, 100, 90, 31),
+    ..._mancha(1400, 700, 120, 90, 70, 47),
+    ..._mancha(600, 500, 100, 150, 55, 59),
+    ..._mancha(900, 900, 90, 80, 30, 71),
+  ],
+  video_demo_cabecera: [
+    ..._mancha(640, 360, 160, 130, 70, 83),
+    ..._mancha(300, 550, 80, 60, 20, 97),
   ],
 };
 
@@ -242,6 +317,8 @@ const state = {
   zoneMetrics: [],                 // filas de GET /videos/{id}/metrics (una por zona)
   zoneHierarchy: [],               // filas de GET /videos/{id}/zones (gondola/estante + parent_zone_id)
   isLoadingHierarchy: false,
+  positions: [],                   // filas de GET /videos/{id}/positions ({x,y} en pixeles del frame)
+  isLoadingPositions: false,
   compareVideoId: '',              // video secundario elegido en "Comparar con:" (vacio = sin comparar)
   compareDetail: null,             // detalle (GET /videos/{id}) de ese segundo video
   isLoadingCompare: false,
@@ -285,6 +362,7 @@ async function loadVideos() {
       loadVideoDetail(state.selectedVideoId);
       loadVideoMetrics(state.selectedVideoId);
       loadZoneHierarchy(state.selectedVideoId);
+      loadPositions(state.selectedVideoId);
     }
   } catch (err) {
     setState({ errorVideos: err.message || 'Error de red al conectar con GET /videos', isLoadingVideos: false });
@@ -334,6 +412,23 @@ async function loadZoneHierarchy(videoId) {
 // No toca el video principal (state.videoDetail): guarda todo aparte en
 // compareDetail, asi el usuario puede cambiar el comparador sin perder lo
 // que ya estaba viendo.
+// Punto de apoyo (los pies) de cada evento del video, en pixeles del frame
+// original -la materia prima de un mapa de calor REAL (densidad espacial),
+// no un agregado por zona. Puede ser una lista larga (miles de puntos):
+// se pide una sola vez por video, no en cada render().
+async function loadPositions(videoId) {
+  if (!videoId) return;
+  setState({ isLoadingPositions: true });
+  try {
+    const positions = state.useMockMode
+      ? MOCK_POSITIONS[videoId] || []
+      : await fetchFromApi(`${cleanBaseUrl(state.apiBaseUrl)}/videos/${encodeURIComponent(videoId)}/positions`);
+    setState({ positions, isLoadingPositions: false });
+  } catch {
+    setState({ positions: [], isLoadingPositions: false });
+  }
+}
+
 async function loadCompareDetail(videoId) {
   if (!videoId) { setState({ compareVideoId: '', compareDetail: null }); return; }
   setState({ compareVideoId: videoId, isLoadingCompare: true });
@@ -353,6 +448,7 @@ function selectVideo(videoId) {
   loadVideoDetail(videoId);
   loadVideoMetrics(videoId);
   loadZoneHierarchy(videoId);
+  loadPositions(videoId);
 }
 
 function toggleMockMode(enabled) {
@@ -566,6 +662,183 @@ function metricCard({ id, title, value, subtext, badge, tone = 'neutral', toolti
     <div class="w-full bg-[#F3F2EF] h-1 rounded-full overflow-hidden mt-2">
       <div class="h-full w-full kpi-bar rounded-full" style="transform:scaleX(${clamped / 100});background-color:${barColor}"></div>
     </div>
+  </div>`;
+}
+
+// Video anonimizado (RENDER_MODE=privacy del AI Service): PILOTO, solo
+// para probar si el equipo lo quiere -ver GET /videos/{id}/render en
+// backend/api.py-. No existe en modo demo (los datos de MOCK_* no tienen
+// ningun archivo de video detras, solo numeros inventados a mano) y no
+// todos los videos reales tienen este render generado, por eso el
+// manejo de error inline: si el archivo no esta, se oculta el
+// reproductor roto y se muestra un aviso en vez de un cuadro negro.
+function renderVideoPlayer() {
+  if (!state.selectedVideoId || state.useMockMode) return '';
+  // El <video> de verdad NO va aqui adentro: vive en #video-player-portal,
+  // FUERA de #root (ver el <body> y el comentario grande junto a
+  // initVideoPlayer(), mas abajo). Este div es solo un HUECO -con una
+  // altura fija, para que el portal sepa que tamano ocupar- que reserva el
+  // espacio en el layout normal de la pagina.
+  return `
+  <div class="bg-white rounded-xl border border-[#EAEAEA] p-4 sm:p-5 shadow-xs">
+    <div class="flex items-center gap-2.5 mb-3">
+      <div class="w-7 h-7 rounded-lg bg-[#F3F2EF] text-[#787774] flex items-center justify-center shrink-0">${icon('video-camera', 'w-4 h-4')}</div>
+      <div>
+        <h3 class="text-sm font-bold text-[#111111]">Video anonimizado (modo privacy)</h3>
+        <p class="text-[11px] text-[#787774]">Fondo gris inventado, nunca la imagen real de la tienda — solo las cajas de detección. La caja de una persona cambia de color unos segundos alrededor de un APPROACH/PICK_UP/PUT_BACK.</p>
+      </div>
+    </div>
+    <div id="video-player-placeholder" class="w-full rounded-lg bg-[#0B1220]" style="height:400px"></div>
+  </div>`;
+}
+
+// El <video> vive en #video-player-portal, un nodo FUERA de #root creado
+// una sola vez en el <body> (ver ahi el comentario completo). #root se
+// reconstruye entero (root.innerHTML = ...) en cada render() -zonas,
+// posiciones y metricas llegan en momentos distintos, y cada una dispara
+// su propio render()-, y un <video> a mitad de descargar 13+ MB no
+// sobrevive eso: el navegador reporta la interrupcion como error de
+// reproduccion aunque el servidor haya respondido bien (bug real, visto en
+// DevTools: varias peticiones /render con 206 Partial Content -correctas-
+// pero el reproductor igual mostraba "no disponible", porque su nodo se
+// destruia y recreaba en medio de la descarga).
+//
+// initVideoPlayer() no MUEVE el <video> a ningun lado (a diferencia de un
+// primer intento con appendChild, que resulto no ser suficiente): lo deja
+// donde esta siempre y solo reposiciona el portal, con CSS, encima del
+// hueco (#video-player-placeholder) que renderVideoPlayer() deja dentro de
+// #root. El <video> nunca esta dentro de #root, ni un instante.
+const portalVideo = document.getElementById('video-player-portal');
+const elementoVideo = document.createElement('video');
+elementoVideo.controls = true;
+elementoVideo.preload = 'metadata';
+elementoVideo.style.width = '100%';
+elementoVideo.style.height = '100%';
+elementoVideo.style.borderRadius = '0.5rem';
+elementoVideo.style.display = 'block';
+
+const errorBoxVideo = document.createElement('p');
+errorBoxVideo.hidden = true;
+errorBoxVideo.className = 'text-xs text-[#956400] bg-[#FBF3DB] rounded-lg px-3 py-2.5';
+errorBoxVideo.textContent = 'Este video todavía no tiene un render "privacy" generado en el servidor (o la API no responde).';
+
+portalVideo.appendChild(elementoVideo);
+portalVideo.appendChild(errorBoxVideo);
+
+elementoVideo.addEventListener('error', () => {
+  elementoVideo.style.display = 'none';
+  errorBoxVideo.hidden = false;
+});
+
+let ultimoVideoPlayerSrc = null;
+
+function _posicionarPortalVideo() {
+  const placeholder = document.getElementById('video-player-placeholder');
+  if (!placeholder) {
+    portalVideo.hidden = true;
+    return;
+  }
+  const rect = placeholder.getBoundingClientRect();
+  portalVideo.style.top = `${window.scrollY + rect.top}px`;
+  portalVideo.style.left = `${window.scrollX + rect.left}px`;
+  portalVideo.style.width = `${rect.width}px`;
+  portalVideo.style.height = `${rect.height}px`;
+  portalVideo.hidden = false;
+}
+window.addEventListener('resize', _posicionarPortalVideo);
+
+function initVideoPlayer() {
+  _posicionarPortalVideo();
+  if (portalVideo.hidden) return; // no hay hueco visible ahora (modo demo, o sin video elegido)
+
+  const src = `${cleanBaseUrl(state.apiBaseUrl)}/videos/${encodeURIComponent(state.selectedVideoId)}/render`;
+  if (src === ultimoVideoPlayerSrc) return; // mismo video: no tocar .src o se reinicia la carga sin necesidad
+  ultimoVideoPlayerSrc = src;
+
+  elementoVideo.style.display = 'block';
+  errorBoxVideo.hidden = true;
+  elementoVideo.src = src;
+}
+
+// "Retroalimentación": por que salieron estos numeros, en lenguaje llano,
+// justo debajo del selector de video -para que alguien pueda entender un
+// resultado raro (una tasa en 0%, un conteo de personas que no cuadra) SIN
+// tener que abrir el video y mirarlo entero-. A proposito NO es el mismo
+// texto que renderInsights() (mas abajo, columna derecha): insights
+// sugiere una ACCION de negocio ("subir cartelería"); esto explica el
+// COMPORTAMIENTO DEL DATO/PIPELINE ("por que da 0", "por que esa tasa no
+// se mueve", "por que ese conteo de personas no es literal"). Son reglas
+// simples sobre los numeros que ya llegaron, nada de IA ni llamada extra.
+function renderFeedback() {
+  if (!state.videoDetail) return '';
+  const d = state.videoDetail;
+  const zones = state.zoneMetrics;
+  const notas = [];
+
+  if (d.pick_up_count === 0) {
+    notas.push({
+      titulo: 'Cero tomas de producto detectadas (PICK_UP)',
+      texto: d.interaction_count > 0
+        ? `Hubo ${formatNumber(d.interaction_count)} acercamiento(s) al estante, pero ninguno se clasificó como una toma real. Puede ser que de verdad nadie se llevó nada, o que el gesto fue muy breve, con las manos ocultas, o quedó justo en el borde del umbral de detección — es una limitación conocida del pipeline, no necesariamente lo que pasó en la tienda.`
+        : `La góndola tuvo muy poco o ningún tránsito frente a ella en este clip: sin acercamientos, no hay de dónde sacar una toma.`,
+    });
+  }
+
+  if (d.pick_up_count > 0 && d.put_back_count === 0) {
+    notas.push({
+      titulo: 'Tasa de rechazo en 0% — no se mueve porque no hay con qué compararla',
+      texto: `Con ${formatNumber(d.pick_up_count)} toma(s) y 0 devoluciones registradas, la fórmula (devoluciones ÷ tomas) siempre da 0%, sin importar cuántas tomas haya. Puede significar que el producto convenció al 100% de quien lo tomó, pero también que el video es muy corto para capturar una devolución, o que PUT_BACK es un gesto más ambiguo de detectar que PICK_UP con el mismo umbral.`,
+    });
+  } else if (d.pick_up_count === 0) {
+    notas.push({
+      titulo: 'Tasa de rechazo no calculable (—), no es lo mismo que 0%',
+      texto: `Sin ninguna toma detectada no hay denominador: el guion (—) es un dato ausente, no una devolución de "cero por ciento" que sí se pueda comparar contra otro video.`,
+    });
+  }
+
+  if (d.duration_s && d.duration_s < 180 && d.people_count > 0) {
+    notas.push({
+      titulo: `Video corto (${formatDuration(d.duration_s)}): las tasas son poco estables`,
+      texto: `Con solo ${formatNumber(d.people_count)} persona(s) distinta(s) detectada(s), cada una pesa mucho en el promedio — una sola toma o devolución de más o de menos mueve cualquier porcentaje varios puntos. No lo trates como una muestra representativa, es una demostración puntual del pipeline.`,
+    });
+  }
+
+  if (state.selectedVideoId.startsWith('video_demo_merl_') && d.people_count > 4) {
+    notas.push({
+      titulo: `¿${formatNumber(d.people_count)} personas distintas en un clip pensado para una sola?`,
+      texto: `Este video viene del dataset público MERL Shopping Dataset, grabado con un único sujeto por clip. Que el sistema cuente ${formatNumber(d.people_count)} "personas distintas" probablemente significa que el rastreador perdió a esa persona en algún momento (una oclusión, un giro brusco) y la volvió a enganchar como si fuera alguien nuevo, no que hayan pasado ${formatNumber(d.people_count)} personas reales por la cámara. Es una limitación conocida del tracking, ver el bug ya documentado de video_001.`,
+    });
+  }
+
+  const zonaMuyActiva = zones.find((z) => z.interaction_rate !== null && z.interaction_rate >= 0.9 && (z.people_count || 0) >= 3);
+  if (zonaMuyActiva) {
+    notas.push({
+      titulo: `${zonaMuyActiva.name}: casi todo el que pasa "interactúa" (${formatPercentage(zonaMuyActiva.interaction_rate)})`,
+      texto: `Puede ser que el estante de verdad atraiga a casi cualquiera que se acerque, o que el área de piso calibrada (floor_zone en data/zones/) sea tan ancha que capture a quien solo camina cerca, no solo a quien se detiene a mirar. Si este patrón se repite en todos los videos, vale la pena revisar esa calibración antes de confiar en el número.`,
+    });
+  }
+
+  if (!notas.length) return '';
+
+  const items = notas.slice(0, 4).map((n) => `
+    <div class="flex gap-2.5">
+      <div class="w-5 h-5 rounded-full bg-[#F3F2EF] text-[#787774] flex items-center justify-center shrink-0 mt-0.5">${icon('help-circle', 'w-3 h-3')}</div>
+      <div>
+        <p class="text-xs font-bold text-[#111111] leading-snug">${esc(n.titulo)}</p>
+        <p class="text-[11px] text-[#57534E] leading-relaxed mt-0.5">${esc(n.texto)}</p>
+      </div>
+    </div>`).join('');
+
+  return `
+  <div class="bg-white rounded-xl border border-[#EAEAEA] p-4 sm:p-5 shadow-xs">
+    <div class="flex items-center gap-2.5 mb-3">
+      <div class="w-7 h-7 rounded-lg bg-[#FBF3DB] text-[#956400] flex items-center justify-center shrink-0">${icon('help-circle', 'w-4 h-4')}</div>
+      <div>
+        <h3 class="text-sm font-bold text-[#111111]">Retroalimentación: por qué salen estos números</h3>
+        <p class="text-[11px] text-[#787774]">Para entender el resultado sin tener que ver el video completo</p>
+      </div>
+    </div>
+    <div class="space-y-3">${items}</div>
   </div>`;
 }
 
@@ -808,6 +1081,100 @@ function renderZonesSection() {
 // people_count relativo al mas concurrido de ESTE video. Debajo dibuja un
 // ranking horizontal de todas las zonas ordenadas por interaccion, para
 // comparar de un vistazo cual estante gana y por cuanto.
+// Mapa de calor REAL: densidad espacial continua sobre las coordenadas
+// (x, y) crudas de GET /videos/{id}/positions (pies de cada persona
+// detectada, en pixeles del frame original), no un agregado coloreado por
+// zona -eso es renderZonesHeatmap(), mas abajo-. El div que devuelve esta
+// funcion es solo el marco; heatmap.js dibuja adentro en initPositionsHeatmap(),
+// llamado despues de cada render() porque necesita el nodo ya en el DOM
+// con su tamano final (heatmap.js no sabe pintar sobre un string HTML).
+function renderPositionsHeatmap() {
+  const current = state.videos.find((v) => v.video_id === state.selectedVideoId);
+  if (state.isLoadingPositions) {
+    return `
+    <div class="bg-white rounded-xl border border-[#EAEAEA] p-5 shadow-xs">
+      <div class="h-4 skeleton rounded w-56 mb-3"></div>
+      <div class="h-64 skeleton rounded-lg"></div>
+    </div>`;
+  }
+  if (!current || !state.positions.length) {
+    return `
+    <div class="bg-white rounded-xl border border-dashed border-[#D6D3D1] p-5 text-center text-xs text-[#787774]">
+      Sin posiciones registradas todavía para este video.
+    </div>`;
+  }
+
+  const aspect = current.width / current.height;
+  return `
+  <div class="rounded-xl border border-[#EAEAEA] p-5 shadow-xs" style="background:linear-gradient(165deg,#FFFFFF 0%,#EEF1F0 100%)">
+    <div class="flex items-center justify-between mb-1">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-[#F3F2EF] text-[#787774] flex items-center justify-center shrink-0">${icon('compass', 'w-4 h-4')}</div>
+        <div>
+          <h3 class="text-sm font-bold text-[#111111]">Mapa de Calor Real (por coordenadas)</h3>
+          <p class="text-[11px] text-[#787774]">Densidad de ${formatNumber(state.positions.length)} posiciones detectadas, en píxeles del frame original</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 text-[10px] text-[#787774] shrink-0">
+        <span>Menos</span><div class="w-24 h-2 rounded" style="background:linear-gradient(90deg,#0B1220,#1F6C9F,#5AD1E0,#FFF06B,#E0472C)"></div><span>Más</span>
+      </div>
+    </div>
+    <div class="relative mt-3 mx-auto" style="max-width:640px">
+      <div id="positions-heatmap-canvas" data-frame-width="${current.width}" data-frame-height="${current.height}"
+           class="relative w-full rounded-lg border border-[#EAEAEA] bg-[#0B1220] overflow-hidden"
+           style="aspect-ratio:${aspect}">
+      </div>
+      <div class="flex justify-between text-[10px] font-mono text-[#A8A29E] mt-1 px-0.5">
+        <span>x=0</span><span>x=${formatNumber(current.width)}px</span>
+      </div>
+    </div>
+    <p class="text-[10px] text-[#A8A29E] text-center mt-1">Eje Y: 0px (arriba) a ${formatNumber(current.height)}px (abajo) — origen en la esquina superior izquierda del frame</p>
+  </div>`;
+}
+
+// Pinta heatmap.js dentro de #positions-heatmap-canvas. Se llama despues de
+// cada render() (ver fillCountUps() mas abajo), nunca durante: heatmap.js
+// necesita medir el contenedor ya insertado en el DOM (container.clientWidth)
+// para saber a que escala de pixeles pintar.
+function initPositionsHeatmap() {
+  const container = document.getElementById('positions-heatmap-canvas');
+  if (!container || typeof h337 === 'undefined') return;
+  const frameWidth = Number(container.dataset.frameWidth);
+  const frameHeight = Number(container.dataset.frameHeight);
+  if (!frameWidth || !frameHeight || !container.clientWidth) return;
+
+  container.innerHTML = '';
+  const heatmap = h337.create({
+    container,
+    radius: Math.max(16, Math.round(container.clientWidth * 0.035)),
+    maxOpacity: 0.9,
+    minOpacity: 0,
+    blur: 0.85,
+  });
+
+  // heatmap.js pinta en pixeles de pantalla, no en pixeles del frame
+  // original: hay que reescalar cada (x, y) a como se ve el contenedor
+  // (que puede medir 640px de ancho para un frame de 1920px). Se agrupan
+  // puntos que caen en el mismo pixel de pantalla (varios frames del mismo
+  // track pasando por el mismo sitio) para que su "value" refleje
+  // concentracion real, no un punto suelto por evento.
+  const scaleX = container.clientWidth / frameWidth;
+  const scaleY = container.clientHeight / frameHeight;
+  const conteo = new Map();
+  state.positions.forEach((p) => {
+    const gx = Math.round(p.x * scaleX);
+    const gy = Math.round(p.y * scaleY);
+    const key = gx + ',' + gy;
+    conteo.set(key, (conteo.get(key) || 0) + 1);
+  });
+  const data = Array.from(conteo, ([key, value]) => {
+    const [x, y] = key.split(',').map(Number);
+    return { x, y, value };
+  });
+  const max = Math.max(1, ...data.map((d) => d.value));
+  heatmap.setData({ max, data });
+}
+
 function renderZonesHeatmap() {
   const zones = state.zoneHierarchy;
   if (state.isLoadingHierarchy) {
@@ -903,8 +1270,8 @@ function renderZonesHeatmap() {
         <div class="flex items-center gap-2.5">
           <div class="w-7 h-7 rounded-lg bg-[#F3F2EF] text-[#787774] flex items-center justify-center shrink-0">${icon('map', 'w-4 h-4')}</div>
           <div>
-            <h3 class="text-sm font-bold text-[#111111]">Mapa de Calor de Zonas</h3>
-            <p class="text-[11px] text-[#787774]">Dónde circula la gente y dónde no, sobre el plano de la tienda</p>
+            <h3 class="text-sm font-bold text-[#111111]">Resumen por Zona</h3>
+            <p class="text-[11px] text-[#787774]">Total agregado por góndola/estante — el mapa de calor por coordenadas está arriba</p>
           </div>
         </div>
         <div class="flex items-center gap-1.5 text-[10px] text-[#787774]">
@@ -1140,6 +1507,7 @@ function render() {
     ${renderConnectionBanner()}
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 space-y-4 ${firstPaint ? 'stagger-in' : ''}">
       ${renderVideoSelector()}
+      ${renderVideoPlayer()}
       ${renderComparePanel()}
       ${errorBlocks}
       ${renderSummaryCards()}
@@ -1150,7 +1518,9 @@ function render() {
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         <div class="lg:col-span-8 space-y-4">
           ${renderZonesSection()}
+          ${renderPositionsHeatmap()}
           ${renderZonesHeatmap()}
+          ${renderFeedback()}
         </div>
         <div class="lg:col-span-4 space-y-4">
           ${renderSidebar()}
@@ -1168,6 +1538,8 @@ function render() {
 
   if (firstPaint) hasAnimatedIn = true;
   fillCountUps();
+  initPositionsHeatmap();
+  initVideoPlayer();
 }
 
 function fillCountUps() {

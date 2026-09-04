@@ -47,9 +47,15 @@ archivo, ~1200 líneas). Se dice en voz alta en vez de esconderlo:
   reglas simples a partir de los números reales (no inventa datos; si no hay
   evidencia suficiente, no dice nada). No es el motor de recomendaciones con
   nivel de confianza que describe el reto — es un primer paso, más simple.
-- Espacio reservado y claramente etiquetado ("PRÓXIMAMENTE") para el mapa de
-  calor: la API todavía no expone coordenadas para pintarlo, así que no se
-  inventa uno.
+- Mapa de calor real, por coordenadas: consume `GET /videos/{id}/positions`
+  (el punto de apoyo — los pies — de cada evento, en píxeles del frame
+  original) y pinta una densidad continua con [heatmap.js](https://www.patrick-wied.at/static/heatmapjs/)
+  (CDN), no un agregado coloreado por zona. Cada punto se reescala del
+  tamaño del frame original al tamaño en pantalla del contenedor
+  (`initPositionsHeatmap()` en `index.html`). Debajo sigue el "Resumen por
+  Zona" (antes se llamaba "Mapa de Calor de Zonas"): tarjetas por
+  góndola/estante y el ranking de interacción — sigue siendo útil como
+  agregado, pero ya no es lo único que hay.
 - Modo demostración con datos **inventados a mano** (para explorar la
   interfaz sin tener la API corriendo) — dos videos ficticios,
   `video_demo_pasillo_01` y `video_demo_cabecera`, con números que no salen
@@ -90,7 +96,9 @@ archivo, ~1200 líneas). Se dice en voz alta en vez de esconderlo:
   la Persona 8 en los prompts del equipo).
 - No hay optimización para ejecución *edge* ni contenedor Docker.
 - No hay integración de extremo a extremo ni pruebas de robustez.
-- El mapa de calor es un espacio reservado, no una funcionalidad.
+- El mapa de calor por coordenadas no dibuja los contornos de las góndolas
+  ni del piso de la tienda sobre la densidad (solo el fondo oscuro liso):
+  falta un plano de referencia para superponer.
 
 ## Limitaciones del video actual (`video_001`)
 
@@ -117,7 +125,7 @@ pipeline que el dashboard simplemente refleja con honestidad.
 
 **Nada localmente.** No hay `npm install`, no hay build. Solo hace falta un
 navegador moderno y, la primera vez que se abre, **conexión a internet**:
-la página carga estas tres cosas desde CDN público en vez de traerlas
+la página carga estas cuatro cosas desde CDN público en vez de traerlas
 empaquetadas:
 
 | Qué | De dónde | Versión fijada |
@@ -125,6 +133,7 @@ empaquetadas:
 | Tailwind CSS | `https://cdn.tailwindcss.com` | **No.** Siempre trae la última. |
 | Fuente Plus Jakarta Sans | `https://fonts.googleapis.com` | Estable por diseño de Google Fonts. |
 | Iconos Phosphor | `https://unpkg.com/@phosphor-icons/web` | **No.** Siempre trae la última. |
+| heatmap.js (mapa de calor) | `https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/...` | **Sí,** `2.0.5`. |
 
 **Gap conocido, a diferencia del resto del proyecto:** `ai-service` y
 `backend` fijan la versión exacta de cada dependencia
