@@ -114,8 +114,9 @@ import statistics
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Sequence
 
 from gondola import pipeline
 from gondola.config import Config
@@ -761,6 +762,185 @@ def _procesar(
 
 
 # --------------------------------------------------------------------------
+# Video (--render), reutilizando gondola/video/ igual que hace 'track'
+# --------------------------------------------------------------------------
+#
+# 'track' ya dibuja una caja por track_id (ver gondola/stages/track.py), pero
+# ese video se genera ANTES de que exista ninguna interaccion: 'track' solo
+# conoce zone_id/segment/interaction una vez que 'zones' e 'interact' ya
+# corrieron. Por eso el video que de verdad marca "aqui la persona tomo un
+# producto" tiene que salir de ESTA etapa, no de 'track'.
+#
+# Colores en BGR (el orden que usa OpenCV), bien distintos del arcoiris que
+# usa color_desde_id() para que un PICK_UP/PUT_BACK salte a la vista aunque
+# haya varias personas en pantalla a la vez.
+COLOR_APPROACH = (0, 200, 255)   # ambar
+COLOR_PICK_UP = (60, 210, 255)   # amarillo vivo
+COLOR_PUT_BACK = (255, 140, 60)  # azul vivo
+
+_COLOR_POR_INTERACCION = {
+    InteractionEvent.APPROACH: COLOR_APPROACH,
+    InteractionEvent.PICK_UP: COLOR_PICK_UP,
+    InteractionEvent.PUT_BACK: COLOR_PUT_BACK,
+}
+
+# `_emitir()` marca interaction.event en UN SOLO evento -el pico del
+# episodio, ver `_cerrar_episodio()`-, que en video es un solo frame: a 30
+# fps, 1/30 de segundo, invisible viendo el video a velocidad normal (se
+# probo el render sin esto: "no se ve, solo sale personas: 1"). Por eso el
+# resaltado en el VIDEO se extiende a una ventana alrededor de ese instante
+# -esto es puramente cosmetico, para el ojo humano: interact.jsonl sigue
+# marcando el frame exacto tal cual lo decide la logica de deteccion, esta
+# ventana no se escribe ahi ni cambia ningun numero de metrics.json-.
+VENTANA_RESALTADO_S = 1.2
+
+
+def _momentos_de_interaccion(eventos) -> dict[int, list[tuple[float, InteractionEvent]]]:
+    """Uno o mas (timestamp, tipo) por track_id, sacados de los pocos
+    eventos que SI traen interaction.event -el resto del archivo no aporta
+    nada aqui-."""
+    momentos: dict[int, list[tuple[float, InteractionEvent]]] = {}
+    for evento in eventos:
+        if evento.interaction.event is not None and evento.track_id is not None:
+            momentos.setdefault(evento.track_id, []).append(
+                (evento.timestamp, evento.interaction.event)
+            )
+    return momentos
+
+
+def _interaccion_activa(
+    track_id: int | None, timestamp: float,
+    momentos_por_track: dict[int, list[tuple[float, InteractionEvent]]],
+) -> InteractionEvent | None:
+    """El tipo de interaccion cuya ventana cubre este instante, o None si el
+    track no tiene ninguna interaccion cerca (el caso normal, la mayoria del
+    video: alguien caminando, sin ningun APPROACH/PICK_UP/PUT_BACK)."""
+    if track_id is None:
+        return None
+    for t_evento, tipo in momentos_por_track.get(track_id, ()):
+        if abs(timestamp - t_evento) <= VENTANA_RESALTADO_S:
+            return tipo
+    return None
+
+
+def _color_de_interaccion(evento: Event, momentos_por_track: dict) -> tuple[int, int, int]:
+    from gondola.stages.track import color_desde_id
+
+    tipo = _interaccion_activa(evento.track_id, evento.timestamp, momentos_por_track)
+    if tipo is None:
+        return color_desde_id(evento.track_id)
+    return _COLOR_POR_INTERACCION[tipo]
+
+
+def _etiqueta_de_interaccion(evento: Event, momentos_por_track: dict) -> str:
+    base = f"id {evento.track_id}"
+    tipo = _interaccion_activa(evento.track_id, evento.timestamp, momentos_por_track)
+    if tipo is None:
+        return base
+    return f"{base} · {tipo.value}!"
+
+
+# Si dos personas tienen una interaccion activa en el mismo frame, cual se
+# anuncia en la cabecera (solo cabe una): PICK_UP y PUT_BACK son lo que de
+# verdad importa para el negocio, por delante de un simple APPROACH.
+_PRIORIDAD_ESTADO = {
+    InteractionEvent.PICK_UP: 0,
+    InteractionEvent.PUT_BACK: 1,
+    InteractionEvent.APPROACH: 2,
+}
+
+
+def _estado_del_frame(
+    grupo: Sequence[Event], momentos_por_track: dict,
+) -> InteractionEvent | None:
+    """La interaccion mas relevante entre TODAS las personas de este frame,
+    para anunciarla en la cabecera -fija, siempre en el mismo sitio- ademas
+    de en la caja de la persona -que se puede perder de vista entre varias
+    personas en pantalla, o si la persona esta al borde del cuadro-."""
+    activos = [
+        _interaccion_activa(e.track_id, e.timestamp, momentos_por_track)
+        for e in grupo
+    ]
+    activos = [a for a in activos if a is not None]
+    if not activos:
+        return None
+    return min(activos, key=lambda a: _PRIORIDAD_ESTADO[a])
+
+
+def _renderizar(cfg: Config, ruta_interact: Path) -> None:
+    """Segunda pasada, SOLO para dibujar: lee <video_id>.interact.jsonl ya
+    terminado y pinta un video que resalta el instante exacto de cada
+    APPROACH/PICK_UP/PUT_BACK.
+
+    Es una pasada aparte, no metida dentro de `_procesar()`, a proposito:
+    `_procesar()` entrega eventos con un retardo de latencia (ver su
+    docstring) que no garantiza el orden estricto de frame entre tracks
+    distintos, y el renderizador SI necesita los frames en orden. Leer el
+    archivo ya cerrado y ordenarlo evita ese problema sin tocarle una linea
+    a la logica de deteccion de interacciones -que ya esta probada y no
+    necesita saber nada de video.
+
+    Sin video de origen, o con RENDER_MODE=none, no hace nada: el .jsonl ya
+    se escribio antes de llegar aqui, el render es un extra, nunca un
+    requisito (mismo criterio que 'track', ver su docstring 'EL VIDEO
+    PROPIO')."""
+    if cfg.render_mode == "none":
+        return
+    if not cfg.video_path.exists():
+        print(f"[interact] Aviso: no encuentro el video en {cfg.video_path}; "
+              f"no se puede renderizar. El .jsonl se escribio igual.")
+        return
+
+    from gondola.stages.track import _fusionar_con_video
+    from gondola.video.reader import VideoReader
+    from gondola.video.render import Renderer
+
+    eventos_ordenados = sorted(read_events(ruta_interact), key=lambda e: e.frame)
+    grupos = [
+        (frame, list(grupo))
+        for frame, grupo in groupby(eventos_ordenados, key=lambda e: e.frame)
+    ]
+    momentos_por_track = _momentos_de_interaccion(eventos_ordenados)
+    n_momentos = sum(len(v) for v in momentos_por_track.values())
+    print(f"[interact] Render: resaltando {n_momentos} interaccion(es) "
+          f"con una ventana de +/-{VENTANA_RESALTADO_S}s cada una")
+
+    # Contador ACUMULADO de tomas, para la cabecera (ver 'productos' en
+    # Renderer.write()): a diferencia de estado_extra (una ventana que
+    # aparece y desaparece), este numero sube en el instante del PICK_UP y
+    # se queda ahi el resto del video -mismo estilo que 'personas'-. Los
+    # timestamps ya vienen en orden (eventos_ordenados esta ordenado por
+    # frame), asi que un puntero que solo avanza basta: no hace falta
+    # recontar en cada frame.
+    timestamps_pick_up = [
+        e.timestamp for e in eventos_ordenados
+        if e.interaction.event is InteractionEvent.PICK_UP
+    ]
+    idx_pick_up = 0
+
+    video_salida = pipeline.render_path("interact", cfg, cfg.render_mode)
+    with VideoReader(cfg.video_path) as video, Renderer(
+        video_salida, cfg.render_mode, video.info.width, video.info.height, video.info.fps
+    ) as renderer:
+        print(f"[interact] Render: {cfg.render_mode}  ->  {video_salida.name}")
+        for indice, timestamp, imagen, grupo in _fusionar_con_video(
+            iter(grupos), video.frames(cfg.frame_stride, cfg.max_frames)
+        ):
+            if imagen is not None:
+                while idx_pick_up < len(timestamps_pick_up) and timestamps_pick_up[idx_pick_up] <= timestamp:
+                    idx_pick_up += 1
+                estado = _estado_del_frame(grupo, momentos_por_track)
+                renderer.write(
+                    imagen, grupo, indice, timestamp,
+                    color_de=lambda e: _color_de_interaccion(e, momentos_por_track),
+                    etiqueta_de=lambda e: _etiqueta_de_interaccion(e, momentos_por_track),
+                    estado_extra=f"¡{estado.value}!" if estado else None,
+                    color_estado=_COLOR_POR_INTERACCION.get(estado) if estado else None,
+                    productos=idx_pick_up,
+                )
+
+
+# --------------------------------------------------------------------------
 # Punto de entrada de la etapa
 # --------------------------------------------------------------------------
 
@@ -802,6 +982,8 @@ def run(cfg: Config) -> int:
                   zonas.frame_height, resumen),
     )
     transcurrido = time.perf_counter() - inicio
+
+    _renderizar(cfg, rutas.output_path)
 
     ruta_resumen = pipeline.summary_path("interact", cfg)
     _escribir_resumen(ruta_resumen, cfg, ruta_zonas, info_video, resumen, transcurrido)
