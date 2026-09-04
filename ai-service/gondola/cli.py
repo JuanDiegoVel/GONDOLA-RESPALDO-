@@ -172,10 +172,8 @@ def comando_etapa(nombre: str, cfg: Config, abrir_video: bool = False) -> int:
         from gondola.stages import interact
 
         return interact.run(cfg)
-
     if nombre == "metrics":
         from gondola.stages import metrics
-
         return metrics.run(cfg)
 
     rutas = pipeline.stage_paths(nombre, cfg)

@@ -170,3 +170,12 @@ def metricas_de_zona(video_id: str, zone_id: str) -> dict[str, Any]:
             ),
         )
     return _serializable(fila)
+@app.get("/videos/{video_id}/zones")
+def jerarquia_de_zonas(video_id: str) -> list[dict[str, Any]]:
+    """Góndolas y estantes con métricas en este video, con su jerarquía
+    (parent_zone_id) resuelta. Es lo que usa el mapa de calor del dashboard
+    para agrupar cada estante bajo su góndola."""
+    with db.get_connection() as conn:
+        _requiere_video(conn, video_id)
+        filas = db.list_zones_for_video(conn, video_id)
+    return [_serializable(f) for f in filas]
