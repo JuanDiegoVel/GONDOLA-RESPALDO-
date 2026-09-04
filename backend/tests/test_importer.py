@@ -2,10 +2,15 @@
 
 Construyen los tres archivos de entrada A MANO -sin video, sin YOLO, sin
 correr el pipeline-, igual que los tests de las demas etapas. El
-`metrics.json` de prueba se genera reutilizando `gondola.stages.metrics`
-(ya probado por la Persona 6) en vez de calcularlo aqui otra vez a mano: lo
-que este archivo prueba es que el IMPORTADOR traduce bien esos datos a
-filas de PostgreSQL, no que la aritmetica de metricas sea correcta.
+`metrics.json` de prueba se calcula A MANO aqui mismo (ver
+`_metrics_esperado_5_eventos`), en vez de reutilizar
+`gondola.stages.metrics` como se hacia antes: ese modulo tiene mas de una
+implementacion en juego ahora mismo (la del equipo original y la de
+Maryi, que no comparten funciones internas), asi que estos tests no deben
+depender de las internas de NINGUNA de las dos. Lo que este archivo
+prueba es que el IMPORTADOR traduce bien un metrics.json a filas de
+PostgreSQL, no que la aritmetica de metricas sea correcta -eso es
+responsabilidad de los tests de la Persona 6.
 """
 
 from __future__ import annotations
@@ -31,7 +36,6 @@ from gondola.contract import (  # noqa: E402
     BBox, Detection, Event, Interaction, InteractionEvent, Metrics, Zone,
 )
 from gondola.jsonl import write_events  # noqa: E402
-from gondola.stages.metrics import _agregar  # noqa: E402
 
 FPS = 25.0
 
@@ -109,11 +113,32 @@ def _preparar_archivos(tmp_path: Path, video_id: str) -> tuple[Path, Path, list[
     interact_path = output_dir / f"{video_id}.interact.jsonl"
     write_events(interact_path, eventos)
 
-    zonas = _agregar(eventos)
+    # Calculado a mano (ver test_importa_video_zonas_eventos_y_metricas):
+    # track 1 (gondola_id): dwell 1.0, 2.0, 3.0; interacciones APPROACH,
+    # None, PICK_UP. track 2 (gondola_id): dwell 0.5; interaccion
+    # APPROACH. track 3: sin zona, no cuenta para ninguna zona.
+    #   people_count      = 2          (tracks 1 y 2)
+    #   interaction_count = 3          (APPROACH+PICK_UP de t1, APPROACH de t2)
+    #   pick_up_count     = 1, put_back_count = 0
+    #   average_dwell_time_s = (1.0+2.0+3.0+0.5) / 4 = 1.625
+    #   interaction_rate  = 2/2 = 1.0  (t1 y t2 tuvieron >=1 interaccion)
+    #   pick_up_rate      = 1/3 = 0.3333333333333333
+    #   conversion_rate   = 1/2 = 0.5  (solo t1 tuvo un PICK_UP)
     metrics_json = {
         "contract_version": "1.0.0",
         "video_id": video_id,
-        "zones": {zid: zm.model_dump() for zid, zm in zonas.items()},
+        "zones": {
+            gondola_id: {
+                "people_count": 2,
+                "interaction_count": 3,
+                "pick_up_count": 1,
+                "put_back_count": 0,
+                "average_dwell_time_s": 1.625,
+                "interaction_rate": 1.0,
+                "pick_up_rate": 1 / 3,
+                "conversion_rate": 0.5,
+            },
+        },
     }
     (output_dir / f"{video_id}.metrics.json").write_text(
         json.dumps(metrics_json), encoding="utf-8"
@@ -217,12 +242,27 @@ def test_fps_no_derivable_requiere_override(tmp_path, video_id):
     solo_frame_cero = [_evento(video_id, 0, 1, gondola_id, "estante_1")]
     write_events(output_dir / f"{video_id}.interact.jsonl", solo_frame_cero)
 
-    zonas = _agregar(solo_frame_cero)
+    # Un solo evento, un solo track, sin interaccion ni dwell registrado:
+    #   people_count = 1, interaction_count = pick_up_count = put_back_count = 0
+    #   average_dwell_time_s = None (no hay ningun dwell_time que promediar)
+    #   interaction_rate = 0/1 = 0.0, pick_up_rate = None (0 interacciones,
+    #   division indefinida), conversion_rate = 0/1 = 0.0
     (output_dir / f"{video_id}.metrics.json").write_text(
         json.dumps({
             "contract_version": "1.0.0",
             "video_id": video_id,
-            "zones": {zid: zm.model_dump() for zid, zm in zonas.items()},
+            "zones": {
+                gondola_id: {
+                    "people_count": 1,
+                    "interaction_count": 0,
+                    "pick_up_count": 0,
+                    "put_back_count": 0,
+                    "average_dwell_time_s": None,
+                    "interaction_rate": 0.0,
+                    "pick_up_rate": None,
+                    "conversion_rate": 0.0,
+                },
+            },
         }),
         encoding="utf-8",
     )
