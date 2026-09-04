@@ -29,14 +29,29 @@ se promedian esos maximos, uno por persona.
 
 QUE ZONA SE USA PARA AGRUPAR
 -----------------------------
-Los agregados son por GONDOLA (evento.zone.zone_id), no por estante. El
-contrato ya trae el segmento (estante) en evento.zone.segment, pero el
-formato de salida que backend/importer.py sabe leer (ver su docstring,
-seccion "Metricas") es un agregado por gondola: {"zones": {"gondola_A": {...}}}.
+Cada evento aporta a DOS filas a la vez (cuando trae estante): la de su
+GONDOLA completa (evento.zone.zone_id) y la de su ESTANTE dentro de esa
+gondola (evento.zone.zone_id + evento.zone.segment). La fila de la gondola
+es la suma de todos sus estantes (mas los eventos sin segment, alguien
+frente a la gondola sin que el tracker lo ubique en un estante concreto):
+sirve para el total de la vitrina; las filas de estante son las que
+permiten comparar, por ejemplo, "Cereales" contra "Snacks y pasabocas"
+dentro de la misma gondola_A.
+
+El identificador de fila para un estante es "<zone_id de la gondola>:<segment>"
+(ej. "gondola_A:estante_2") -exactamente la misma convencion que ya usa
+`backend/importer.py` en `_zone_id_de_estante()| para construir el zone_id
+unico de esa fila en la tabla `zones`-. Si aqui se usara un identificador
+distinto, el importador nunca encontraria una fila de metrics que le
+haga match a su zona de estante, y volveria a pasar lo mismo que este
+cambio arregla: `GET /videos/{id}/zones` (que hace INNER JOIN con
+`metrics`, ver `backend/db.py:list_zones_for_video`) solo devolveria la
+gondola, nunca sus estantes.
+
 Eventos con zone.zone_id en null (alguien en un pasillo, entre gondolas) no
 se pierden de vista: se cuentan aparte, en 'sin_zona', y se informan en la
-salida por pantalla, pero no generan una fila de metrics (la tabla exige un
-zone_id valido).
+salida por pantalla, pero no generan ninguna fila de metrics (la tabla
+exige un zone_id valido).
 
 POR QUE NO SE IMPORTA NADA PESADO
 -----------------------------------
@@ -94,22 +109,14 @@ class Resumen:
 # Logica pura: se prueba con eventos construidos a mano, sin archivos.
 # --------------------------------------------------------------------------
 
-def acumular_evento(agregados: dict[str, _AgregadoZona], evento, resumen: Resumen) -> None:
-    """Suma un evento a su gondola. Si no tiene zona, solo se cuenta aparte.
+SEPARADOR_ESTANTE = ":"  # igual que backend/importer.py:_zone_id_de_estante
 
-    Eventos sin track_id (una deteccion que el tracker todavia no engancho a
-    nadie, ver Persona 3) no aportan a people_count ni a dwell, pero SI
-    pueden aportar a interaction_count si de casualidad trajeran una
-    interaccion (en la practica no deberia pasar, pero no se asume).
-    """
-    resumen.eventos_leidos += 1
 
-    zone_id = evento.zone.zone_id
-    if zone_id is None:
-        resumen.eventos_sin_zona += 1
-        return
-
-    zona = agregados.setdefault(zone_id, _AgregadoZona())
+def _sumar_a_fila(agregados: dict[str, _AgregadoZona], fila_id: str, evento) -> None:
+    """Suma un evento a UNA fila (gondola o estante). Compartida entre las
+    dos filas a las que puede aportar un mismo evento -ver acumular_evento-
+    para no repetir la aritmetica dos veces."""
+    zona = agregados.setdefault(fila_id, _AgregadoZona())
 
     if evento.track_id is not None:
         zona.track_ids.add(evento.track_id)
@@ -125,6 +132,30 @@ def acumular_evento(agregados: dict[str, _AgregadoZona], evento, resumen: Resume
             zona.pick_up_count += 1
         elif valor == "PUT_BACK":
             zona.put_back_count += 1
+
+
+def acumular_evento(agregados: dict[str, _AgregadoZona], evento, resumen: Resumen) -> None:
+    """Suma un evento a su gondola y, si trae estante, tambien a la fila de
+    ese estante. Si no tiene ni zona, solo se cuenta aparte (ver
+    'sin_zona' en Resumen).
+
+    Eventos sin track_id (una deteccion que el tracker todavia no engancho a
+    nadie, ver Persona 3) no aportan a people_count ni a dwell, pero SI
+    pueden aportar a interaction_count si de casualidad trajeran una
+    interaccion (en la practica no deberia pasar, pero no se asume).
+    """
+    resumen.eventos_leidos += 1
+
+    zone_id = evento.zone.zone_id
+    if zone_id is None:
+        resumen.eventos_sin_zona += 1
+        return
+
+    _sumar_a_fila(agregados, zone_id, evento)
+
+    segment = evento.zone.segment
+    if segment is not None:
+        _sumar_a_fila(agregados, f"{zone_id}{SEPARADOR_ESTANTE}{segment}", evento)
 
 
 def _tasa(numerador: int, denominador: int) -> float | None:

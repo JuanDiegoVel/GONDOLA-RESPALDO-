@@ -317,20 +317,37 @@ def _importar_eventos(
 
 def _importar_metricas(
     conn, metrics_path: Path, video_uuid: UUID,
-    gondola_a_uuid: dict[str, UUID], duration_s: float | None,
+    gondola_a_uuid: dict[str, UUID], estante_a_uuid: dict[tuple[str, str], UUID],
+    duration_s: float | None,
 ) -> int:
-    """`<video_id>.metrics.json` ya trae, por gondola, exactamente las
-    columnas de `metrics` (lo calculo la Persona 6 con los mismos rangos que
-    el CHECK de la base de datos): aqui solo se pasan tal cual, no se
-    recalculan. La ventana es el video completo (no hay particion por
-    tiempo en este JSON), por eso `window_start_s=0` y `window_end_s` es la
-    duracion detectada del video."""
+    """`<video_id>.metrics.json` ya trae, por gondola Y por estante,
+    exactamente las columnas de `metrics` (lo calculo la Persona 6 con los
+    mismos rangos que el CHECK de la base de datos): aqui solo se pasan tal
+    cual, no se recalculan. La ventana es el video completo (no hay
+    particion por tiempo en este JSON), por eso `window_start_s=0` y
+    `window_end_s` es la duracion detectada del video.
+
+    `estante_a_uuid` esta indexado por (zone_id de la gondola, segment) -lo
+    que necesita `_fila_de_evento` para los eventos-, pero metrics.json ya
+    trae el zone_id del estante como texto compuesto ("gondola_A:estante_2",
+    ver `gondola/stages/metrics.py`), no como esa tupla. Por eso aqui se
+    aplana a un solo diccionario zone_id-de-texto -> UUID con
+    `_zone_id_de_estante`, la MISMA funcion que construyo ese texto del lado
+    del pipeline: si el separador cambiara en un solo lado, este metodo
+    volveria a rechazar todo el metrics.json de estantes con el mismo error
+    de abajo."""
     from db import insert_metrics
+
+    uuid_por_zone_id: dict[str, UUID] = dict(gondola_a_uuid)
+    uuid_por_zone_id.update({
+        _zone_id_de_estante(gondola_zone_id, segment): fila_uuid
+        for (gondola_zone_id, segment), fila_uuid in estante_a_uuid.items()
+    })
 
     datos = json.loads(metrics_path.read_text(encoding="utf-8"))
     filas = []
     for zone_id, agregado in datos.get("zones", {}).items():
-        if zone_id not in gondola_a_uuid:
+        if zone_id not in uuid_por_zone_id:
             raise ImporterError(
                 f"{metrics_path.name} trae metricas de la zona '{zone_id}', que "
                 "no existe en el archivo de zonas cargado.\n"
@@ -338,7 +355,7 @@ def _importar_metricas(
             )
         filas.append({
             "video_id": video_uuid,
-            "zone_id": gondola_a_uuid[zone_id],
+            "zone_id": uuid_por_zone_id[zone_id],
             "window_start_s": 0,
             "window_end_s": duration_s,
             "people_count": agregado["people_count"],
@@ -411,7 +428,8 @@ def import_video(
                 conn, rutas.interact_path, video_uuid, gondola_a_uuid, estante_a_uuid
             )
             resumen.metricas_importadas = _importar_metricas(
-                conn, rutas.metrics_path, video_uuid, gondola_a_uuid, derivado.duration_s
+                conn, rutas.metrics_path, video_uuid,
+                gondola_a_uuid, estante_a_uuid, derivado.duration_s
             )
         except Exception:
             conn.rollback()
