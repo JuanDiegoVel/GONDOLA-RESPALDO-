@@ -17,9 +17,22 @@ Persona 6 al escribir `metrics.json`, o Postgres al agregar `events`.
 
 QUE NO HAY AQUI TODAVIA A PROPOSITO
 --------------------------------------
-Dashboard, mapa de calor y recomendaciones son de otra fase/persona (Persona
-8 consume esta API, no le pega a la base de datos por su cuenta: ver
-docs/architecture.md, seccion "Personas 7 y 8"). Esta API solo expone datos.
+Mapa de calor y recomendaciones con nivel de confianza son de otra
+fase/persona (Persona 8 consume esta API, no le pega a la base de datos por
+su cuenta: ver docs/architecture.md, seccion "Personas 7 y 8"). Esta API
+solo expone datos.
+
+CORS: POR QUE ESTA ABIERTO A CUALQUIER ORIGEN
+-----------------------------------------------
+`frontend/index.html` es un archivo HTML suelto (sin build, sin servidor
+propio) que la Persona 8 abre directo con el navegador (`file://...`). Un
+navegador que abre un archivo local manda `Origin: null` en sus peticiones
+`fetch()`, y sin `CORSMiddleware` el navegador BLOQUEA la respuesta aunque
+la API la haya procesado bien -el bloqueo es del lado del navegador, no de
+este servidor-. `allow_origins=["*"]` es aceptable aqui porque esto es una
+API que corre en la propia tienda, en la red local, nunca expuesta a
+internet (ver "viabilidad edge" en docs/evaluation.md): no hay credenciales
+que proteger ni un origen externo del que cuidarse.
 """
 
 from __future__ import annotations
@@ -29,6 +42,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from psycopg.errors import Error as PsycopgError
 
@@ -38,6 +52,13 @@ app = FastAPI(
     title="Gondola Inteligente - API",
     description="Metricas de flujo, permanencia e interaccion frente a las gondolas.",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
 )
 
 
