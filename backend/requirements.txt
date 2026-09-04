@@ -1,0 +1,16 @@
+# Dependencias del backend (importador + API). Independientes de las del
+# AI Service: quien solo trabaja en backend/ no necesita instalar PyTorch.
+# Instalacion:
+#     cd backend
+#     python -m venv .venv
+#     .venv/Scripts/activate        (Windows)  o  source .venv/bin/activate (Linux/Mac)
+#     pip install -r requirements.txt
+#
+# Versiones verificadas con Python 3.14, contra PostgreSQL 17.
+
+fastapi==0.141.1          # API REST
+uvicorn[standard]==0.52.4 # servidor ASGI para correr la API
+psycopg[binary]==3.3.5    # cliente de PostgreSQL
+python-dotenv==1.2.3      # lectura del .env de la raiz del repositorio
+pytest==9.1.1             # tests
+httpx==0.28.1             # cliente HTTP usado por los tests de la API (TestClient)
