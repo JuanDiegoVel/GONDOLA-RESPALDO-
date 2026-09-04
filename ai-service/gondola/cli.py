@@ -104,6 +104,16 @@ def comando_doctor() -> int:
                       "deja el video de Scapder en data/videos/ (ver su README)")
     _informar_archivo("Modelo", cfg.model_path,
                       "descarga los pesos YOLO a data/models/ (hace falta en la Fase 3)")
+    if sys.platform == "win32":
+        _dll_openh264 = RAIZ / "data" / "models" / "openh264-2.5.0-win64.dll"
+        # A diferencia de los otros dos archivos, si esta falta OpenCV NO
+        # lanza un error: escribe un video .privacy.mp4 casi vacio en
+        # silencio (ver data/models/README.md). Por eso doctor la revisa
+        # aunque el pipeline nunca se queje por su cuenta.
+        _informar_archivo("Codec H.264", _dll_openh264,
+                          "descarga openh264-2.5.0-win64.dll a data/models/ "
+                          "(ver data/models/README.md) o los videos .privacy.mp4 "
+                          "no se van a poder reproducir en un navegador")
 
     print("\n[5] Estado de la cadena")
     print(f"    Carpeta de salida: {cfg.output_dir}")

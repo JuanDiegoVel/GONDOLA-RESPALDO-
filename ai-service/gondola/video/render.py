@@ -18,6 +18,7 @@ pasa. Esa es la diferencia entre tapar los datos y no tenerlos.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -26,6 +27,26 @@ import numpy as np
 
 from gondola.contract import Event
 from gondola.errors import VideoError
+
+# El video que se sube al dashboard tiene que reproducirse en un <video> de
+# navegador, y ningun navegador sabe decodificar 'mp4v' (MPEG-4 Part 2, el
+# fourcc que usaba esta clase antes) -se descarga bien pero el navegador
+# tira un error de codec no soportado, bug real visto probando el
+# reproductor del dashboard-. 'avc1' es H.264, que si soportan todos.
+#
+# En Windows, el backend FFmpeg de OpenCV necesita la libreria de Cisco
+# (openh264-*.dll) para codificar H.264, y no la trae incluida por
+# licencia. Se descarga aparte (ver data/models/README.md, mismo patron
+# que yolo11n.pt) y se registra aqui su carpeta como sitio de busqueda de
+# DLLs -si no esta, VideoWriter.isOpened() sigue devolviendo True pero
+# escribe un archivo casi vacio sin avisar con una excepcion, por eso
+# 'python -m gondola doctor' tambien la revisa (ver cli.py)-.
+if sys.platform == "win32":
+    _CARPETA_MODELOS = Path(__file__).resolve().parents[3] / "data" / "models"
+    if _CARPETA_MODELOS.is_dir():
+        import os
+
+        os.add_dll_directory(str(_CARPETA_MODELOS))
 
 # Colores en BGR, que es el orden que usa OpenCV.
 VERDE = (80, 220, 80)
@@ -56,7 +77,13 @@ class Renderer:
 
         destino.parent.mkdir(parents=True, exist_ok=True)
         # VideoWriter.fourcc es la forma moderna; funciona en OpenCV 4 y 5.
-        codec = cv2.VideoWriter.fourcc(*"mp4v")
+        # 'avc1' = H.264: es el que sabe reproducir un <video> de navegador
+        # (ver el comentario grande arriba de este archivo). Si falta la
+        # libreria openh264 de Windows, OpenCV NO lanza una excepcion aqui
+        # -isOpened() sigue diciendo True- y en vez de eso escribe un
+        # archivo casi vacio en silencio: por eso 'python -m gondola doctor'
+        # tambien avisa si falta esa DLL, no solo si falta este archivo.
+        codec = cv2.VideoWriter.fourcc(*"avc1")
         writer = cv2.VideoWriter(str(destino), codec, fps, (ancho, alto))
         if not writer.isOpened():
             raise VideoError(
@@ -74,6 +101,9 @@ class Renderer:
         timestamp: float,
         color_de: Callable[[Event], tuple[int, int, int]] | None = None,
         etiqueta_de: Callable[[Event], str] | None = None,
+        estado_extra: str | None = None,
+        color_estado: tuple[int, int, int] | None = None,
+        productos: int | None = None,
     ) -> None:
         """Escribe un frame. En modo privacy, `frame_original` se ignora.
 
@@ -81,6 +111,11 @@ class Renderer:
         verde con su confianza (lo que necesita `detect`). Pasarlos permite
         que otra etapa (por ejemplo `track`, con su track_id) dibuje distinto
         sin duplicar nada de OpenCV fuera de este modulo.
+
+        `estado_extra`/`color_estado` son para un aviso TEMPORAL en la
+        cabecera (una ventana de segundos, ver 'interact'); `productos` es
+        un CONTADOR ACUMULADO que se queda ahi el resto del video, igual que
+        `personas` -ver `_dibujar_cabecera`-.
         """
         if self._writer is None:
             return
@@ -95,7 +130,9 @@ class Renderer:
             etiqueta = etiqueta_de(evento) if etiqueta_de else f"person {evento.detection.confidence:.2f}"
             self._dibujar_caja(lienzo, evento, color, etiqueta)
 
-        self._dibujar_cabecera(lienzo, indice, timestamp, len(eventos))
+        self._dibujar_cabecera(
+            lienzo, indice, timestamp, len(eventos), estado_extra, color_estado, productos
+        )
         self._writer.write(lienzo)
 
     def _lienzo_neutro(self) -> np.ndarray:
@@ -140,11 +177,33 @@ class Renderer:
         px, py = caja.support_point
         cv2.circle(lienzo, (int(px), int(py)), 4, color, -1)
 
-    def _dibujar_cabecera(self, lienzo, indice: int, timestamp: float, personas: int) -> None:
-        """Frame, timestamp y conteo. En privacy es toda la informacion que hay."""
+    def _dibujar_cabecera(
+        self, lienzo, indice: int, timestamp: float, personas: int,
+        estado_extra: str | None = None, color_estado: tuple[int, int, int] | None = None,
+        productos: int | None = None,
+    ) -> None:
+        """Frame, timestamp, conteo de personas EN ESTE FRAME y, si se pasa
+        `productos`, el conteo ACUMULADO de tomas hasta este instante -al
+        lado de 'personas', mismo estilo, para que se lea igual de facil:
+        empieza en 0 y sube cada vez que hay un PICK_UP, se queda en ese
+        numero el resto del video (no es una ventana que desaparece, como
+        `estado_extra`, mas abajo)."""
         cv2.rectangle(lienzo, (0, 0), (self.ancho, 34), (0, 0, 0), -1)
         izquierda = f"frame {indice}   t={timestamp:6.2f}s   personas: {personas}"
+        if productos is not None:
+            izquierda += f"   productos: {productos}"
         cv2.putText(lienzo, izquierda, (10, 22), FUENTE, 0.6, BLANCO, 1, cv2.LINE_AA)
+
+        if estado_extra:
+            # Una insignia de color aparte del texto de siempre, no solo el
+            # mismo texto en otro color: asi salta a la vista aunque se este
+            # viendo de reojo, no solo leyendo con cuidado.
+            (ancho_base, _), _ = cv2.getTextSize(izquierda, FUENTE, 0.6, 1)
+            x = 10 + ancho_base + 20
+            color = color_estado or BLANCO
+            (ancho_estado, _), _ = cv2.getTextSize(estado_extra, FUENTE, 0.65, 2)
+            cv2.rectangle(lienzo, (x - 8, 5), (x + ancho_estado + 8, 29), color, -1)
+            cv2.putText(lienzo, estado_extra, (x, 22), FUENTE, 0.65, (20, 20, 20), 2, cv2.LINE_AA)
 
         derecha = "SIN IMAGEN REAL" if self.modo == "privacy" else "MODO DEBUG - NO COMPARTIR"
         color = GRIS_TEXTO if self.modo == "privacy" else (80, 80, 235)
