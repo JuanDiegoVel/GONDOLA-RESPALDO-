@@ -77,12 +77,12 @@ reconsiderarla.
 |---|---|---|---|---|
 | **AI Service** | `ai-service/` | Del video a los `.jsonl`. | Python 3.12+ (YOLO11n, OpenCV, Pydantic v2) | Personas 1–6 |
 | **Backend** | `backend/` | De los `.jsonl` a PostgreSQL. Expone la API REST. | **Python** (FastAPI o equivalente) + PostgreSQL | Persona 7 |
-| **Frontend** | `frontend/` | Dashboard y recomendaciones. | **Python**, lo más simple que sirva | Persona 8 |
+| **Frontend** | `frontend/` | Dashboard y recomendaciones. | **HTML/CSS/JS vanilla** — ver excepción abajo | Persona 8 |
 
 Las capas solo se comunican por **archivos** (AI → Backend) y por **API**
 (Backend → Frontend). Nadie importa código de otra capa.
 
-### Las tres capas son Python
+### Las tres capas son Python — con una excepción documentada
 
 **No usamos Java, Spring Boot, JPA, Maven, Gradle ni IntelliJ.** No hay nada de
 eso en el repositorio y no hay que instalarlo.
@@ -93,6 +93,16 @@ quien escribe una etapa del pipeline puede leer el backend, y quien hace el
 dashboard puede depurar el importador. Con dos lenguajes tendríamos dos
 ecosistemas, dos formas de empaquetar y dos mitades del equipo que no se pueden
 ayudar entre sí.
+
+**`frontend/` rompe esta regla, a propósito y por escrito.** Es un solo
+archivo HTML con CSS y JavaScript vanilla (`frontend/index.html`): sin
+Node, sin `npm install`, sin build. Se diseñó primero en React (con ayuda
+de una IA) y se portó a mano a HTML/JS plano para no obligar al equipo a
+instalar un segundo entorno — la parte que sí se sostiene de "un solo
+entorno que instalar" es que seguir sin necesitar Node en ninguna máquina.
+Lo que sí se pierde es que quien solo sabe Python no puede leer este
+archivo tan fácil como leería un `.py`. El detalle completo, las
+limitaciones y qué falta están en [`frontend/README.md`](../frontend/README.md).
 
 ---
 
@@ -111,7 +121,8 @@ datos, API y dashboard en una sola persona es demasiada carga para una.
 
 **PERSONA 8 — dashboard, recomendaciones e integración final** (`frontend/`)
 
-- **Dashboard** sobre la API de la Persona 7, en Python.
+- **Dashboard** sobre la API de la Persona 7 (HTML/CSS/JS vanilla, ver la
+  excepción de lenguaje más arriba y `frontend/README.md`).
 - **Motor de recomendaciones** de *space management* y planograma.
 - **Optimización para ejecución local** (*edge*) y Docker.
 - **Integración final**, pruebas de extremo a extremo y demo.

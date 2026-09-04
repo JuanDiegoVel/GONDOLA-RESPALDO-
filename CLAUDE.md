@@ -11,13 +11,25 @@ Proyecto universitario de 8 personas. La Persona 1 lidera la arquitectura.
 
 ## Un solo lenguaje: todo el proyecto es Python
 
-Las tres capas son Python, incluidas las dos que todavia no existen:
+Las tres capas son Python:
 
 | Capa | Lenguaje | Quien |
 |---|---|---|
 | Pipeline (`ai-service/`) | Python 3.12+, YOLO11n, OpenCV, Pydantic v2 | Personas 1-6 |
-| Backend y API (`backend/`) | **Python** (FastAPI o equivalente) + PostgreSQL | Persona 7 |
-| Dashboard (`frontend/`) | **Python**, lo mas simple que sirva | Persona 8 |
+| Backend y API (`backend/`) | **Python** (FastAPI) + PostgreSQL | Persona 7 |
+| Dashboard (`frontend/`) | **EXCEPCION, ver abajo** | Persona 8 |
+
+**`frontend/` es la unica excepcion a "todo Python", y esta documentada a
+proposito, no escondida.** Es HTML + CSS + JavaScript vanilla en un solo
+archivo (`frontend/index.html`), sin Node, sin build, sin `package.json`:
+se abre directo en el navegador y consume la API de la Persona 7 por
+`fetch()`. Se hizo asi porque se diseno primero en React con ayuda de una
+IA y se prefirio portarlo a HTML/JS plano antes que arrastrar un segundo
+entorno (Node/npm) para las 8 personas. El detalle completo -que hace, que
+le falta, que instalar (nada, pero necesita internet para sus CDN sin
+version fijada), y una limitacion de CORS ya resuelta en `backend/api.py`-
+esta en [`frontend/README.md`](frontend/README.md). Si vas a seguir
+tocando el dashboard, lee ese archivo primero.
 
 **No se usa Java, Spring Boot, JPA, Maven, Gradle ni IntelliJ.** No hay una sola
 linea de eso en el repositorio y no debe aparecer ninguna. Que `backend/` hoy

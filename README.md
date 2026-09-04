@@ -88,7 +88,7 @@ PROYECTO GONDOLA INTELIGENTE/
 │   └── tests/               unit/ (rápidos) e integration/ (con YOLO)
 ├── backend/               Importador y API REST en Python (Persona 7)
 │   └── database/            schema.sql y datos de ejemplo
-├── frontend/              Dashboard en Python y recomendaciones (Persona 8)
+├── frontend/              Dashboard (HTML/CSS/JS, ver su README) y recomendaciones (Persona 8)
 ├── data/                  videos, models, output, groundtruth
 ├── docs/                  Documentación
 └── scripts/               Utilidades
@@ -258,8 +258,8 @@ Detalle, incluida la relación con la Ley 1581 de 2012, en
 | Verificador y evaluación | hecho |
 | Base de datos, documentación y CI | hecho |
 | Seguimiento, zonas, interacción, métricas | pendiente — Personas 3–6 |
-| Importador y API REST en Python | pendiente — Persona 7 |
-| Dashboard, recomendaciones e integración final | pendiente — Persona 8 |
+| Importador y API REST en Python | hecho (`backend/importer.py`, `backend/api.py`) — falta `backend/README.md` con la guía de arranque completa |
+| Dashboard | hecho (HTML/CSS/JS, ver `frontend/README.md`) — faltan recomendaciones con nivel de confianza, *edge*/Docker e integración final |
 | **Anotación de video para medir exactitud** | pendiente — **sin esto no hay cifras** |
 
 ### Lo que este sistema todavía NO puede afirmar
