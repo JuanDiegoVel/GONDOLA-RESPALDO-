@@ -1,0 +1,7 @@
+video_id,timestamp,zone_id,event
+video_001_clip,9.5,gondola_A,APPROACH
+video_001_clip,12.9,gondola_A,PICK_UP
+video_001_clip,16.0,gondola_A,PICK_UP
+video_001_clip,19.0,gondola_A,PICK_UP
+video_001_clip,32.3,gondola_A,PICK_UP
+video_001_clip,35.2,gondola_A,PICK_UP

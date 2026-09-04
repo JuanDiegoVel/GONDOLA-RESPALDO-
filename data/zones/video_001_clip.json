@@ -1,0 +1,36 @@
+{
+  "video_id": "video_001_clip",
+  "frame_width": 920,
+  "frame_height": 680,
+  "gondolas": [
+    {
+      "zone_id": "gondola_A",
+      "name": "Estanteria unica (camara cenital)",
+      "product_category": null,
+      "shelves": [
+        {
+          "segment": "estante_1",
+          "name": "Cereales",
+          "product_category": "cereales",
+          "floor_zone": {
+            "x": 120,
+            "y": 270,
+            "width": 410,
+            "height": 380
+          }
+        },
+        {
+          "segment": "estante_2",
+          "name": "Snacks y pasabocas",
+          "product_category": "snacks",
+          "floor_zone": {
+            "x": 530,
+            "y": 270,
+            "width": 370,
+            "height": 380
+          }
+        }
+      ]
+    }
+  ]
+}

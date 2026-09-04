@@ -1,0 +1,55 @@
+# --- Secretos y configuracion local ---------------------------------------
+.env
+
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# --- Entornos virtuales ---------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# --- IDE y sistema operativo ----------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Datos: SOLO dentro de data/ ------------------------------------------
+# IMPORTANTE 1: estos patrones estan acotados a data/ a proposito.
+# Un "*.jsonl" o "*.mp4" global ignoraria en silencio los archivos de prueba
+# de ai-service/tests/, y ese error es dificilisimo de diagnosticar: el test
+# pasa en tu maquina y falla en la del companero porque el archivo nunca subio.
+#
+# IMPORTANTE 2: se ignora el CONTENIDO (data/videos/*), no la carpeta
+# (data/videos/). Si se ignora la carpeta entera, git ni siquiera mira lo que
+# hay dentro y el "!data/videos/README.md" de abajo no tiene ningun efecto:
+# el README desaparece del repositorio sin avisar.
+data/videos/*
+data/models/*
+data/output/*
+
+# Los README que explican que va en cada carpeta si se conservan.
+!data/videos/README.md
+!data/models/README.md
+!data/output/README.md
+
+# data/groundtruth/ NO se ignora: son anotaciones hechas a mano que no se
+# pueden regenerar. Si se pierden, hay que rehacerlas desde cero.
+
+# --- Pesos de modelos (por si alguien los deja fuera de data/) -------------
+*.pt
+*.onnx
+*.engine
+
+# --- Temporales -----------------------------------------------------------
+*.log
+*.tmp
+*.bak
+tmp/

@@ -1,0 +1,10 @@
+# Dependencias LIGERAS: bastan para correr los tests unitarios.
+# Unos pocos MB, sin PyTorch, sin GPU, sin descargar 3 GB.
+#     pip install -r requirements-dev.txt
+#     pytest
+#
+# Versiones verificadas en la Fase 1 con Python 3.14: 29 tests en verde.
+
+pytest==9.1.1           # ejecutor de tests
+pydantic==2.13.4        # el contrato se prueba, asi que hace falta aqui
+python-dotenv==1.2.2    # la configuracion se prueba, asi que hace falta aqui

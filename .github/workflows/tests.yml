@@ -1,0 +1,56 @@
+# Corre los tests unitarios en cada push y en cada Pull Request.
+#
+# PARA QUE SIRVE
+# --------------
+# Para que nadie rompa el contrato sin enterarse. Somos 8 personas tocando el
+# mismo repositorio: si alguien cambia un campo de contract.py, esto falla en
+# su Pull Request, no tres semanas despues en la integracion.
+#
+# Instala SOLO requirements-dev.txt (unos MB). Los tests de integracion, que
+# necesitan PyTorch, se saltan solos porque ultralytics no esta instalado:
+# descargar 3 GB en cada push seria lento y no aporta nada aqui.
+
+name: tests
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias ligeras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Tests unitarios
+        run: pytest ai-service/tests/unit -v
+
+      - name: El verificador detecta un archivo con datos prohibidos
+        # Comprobacion de extremo a extremo de nuestra garantia de privacidad:
+        # se fabrica una salida con un campo de edad y se exige que `verify`
+        # falle. Si algun dia dejara de fallar, esto se pone rojo.
+        run: |
+          mkdir -p data/output
+          cat > data/output/ci_test.detect.jsonl <<'JSON'
+          {"video_id":"ci_test","frame":0,"timestamp":0.0,"track_id":null,"detection":{"class":"person","confidence":0.9,"bbox":{"x":1,"y":1,"width":10,"height":20}},"zone":{"zone_id":null,"segment":null},"interaction":{"event":null,"product_zone":null},"metrics":{"dwell_time":null},"age":32}
+          JSON
+          cd ai-service
+          if python -m gondola verify ../data/output/ci_test.detect.jsonl; then
+            echo "FALLO: verify aprobo un archivo con un campo de edad"
+            exit 1
+          else
+            echo "OK: verify rechazo el campo prohibido, como debe"
+          fi
