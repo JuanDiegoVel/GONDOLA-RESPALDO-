@@ -31,8 +31,8 @@ navegador que abre un archivo local manda `Origin: null` en sus peticiones
 la API la haya procesado bien -el bloqueo es del lado del navegador, no de
 este servidor-. `allow_origins=["*"]` es aceptable aqui porque esto es una
 API que corre en la propia tienda, en la red local, nunca expuesta a
-internet (ver "viabilidad edge" en docs/evaluation.md): no hay credenciales
-que proteger ni un origen externo del que cuidarse.
+internet: no hay credenciales que proteger ni un origen externo del que
+cuidarse.
 """
 
 from __future__ import annotations
