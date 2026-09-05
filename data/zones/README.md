@@ -8,6 +8,13 @@ tienda, en pixeles. Formato completo: [`docs/zones-format.md`](../../docs/zones-
   desarrollar y probar sin depender de que alguien mas haya calibrado ya el
   video real. No lo trates como calibracion final: revisalo con la
   herramienta antes de confiar en el.
+- `video_001.json` — la calibracion real (1 gondola, 2 estantes:
+  "Cereales" y "Snacks y pasabocas") usada para importar `video_001` de
+  verdad a PostgreSQL.
+- `video_demo_merl_*.json` (24_3, 15_3, 39_1, 18_3, 36_1) — reutilizan
+  exactamente la misma geometria que `video_001.json`: son clips del
+  dataset publico MERL Shopping Dataset, grabados con la misma resolucion
+  y encuadre (920x680), asi que no hizo falta recalibrar nada.
 - A diferencia de los videos y los modelos, **estos archivos SI se versionan
   en git**: son texto plano, pequenos, y no contienen ninguna imagen ni dato
   de personas -son coordenadas de una camara fija, no de gente.

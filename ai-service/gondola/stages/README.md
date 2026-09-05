@@ -6,11 +6,17 @@ nuevo: todas hablan el mismo `Event` de `gondola/contract.py`.
 
 | Archivo | Responsable | Campos que rellena | Estado |
 |---|---|---|---|
-| `detect.py`   | Persona 2 | `detection` | **hecha** (Fase 3) |
-| `track.py`    | Persona 3 | `track_id` | pendiente |
-| `zones.py`    | Persona 4 | `zone`, `metrics.dwell_time` | pendiente |
-| `interact.py` | Persona 5 | `interaction` | pendiente |
-| `metrics.py`  | Persona 6 | agregados finales | pendiente |
+| `detect.py`   | Persona 2 | `detection` | **hecha** |
+| `track.py`    | Persona 3 | `track_id` | **hecha** |
+| `zones.py`    | Persona 4 | `zone`, `metrics.dwell_time` | **hecha** |
+| `interact.py` | Persona 5 | `interaction` | **hecha** — ademas de eventos, renderiza su propio video (resalta APPROACH/PICK_UP/PUT_BACK, ver su docstring "Video (--render)") |
+| `metrics.py`  | Persona 6 | agregados finales | **hecha** — por gondola Y por estante (`gondola_A:estante_1`) |
+
+`detect.py`, `track.py` e `interact.py` escriben ademas su propio video en
+`RENDER_MODE=privacy` (fondo gris inventado, nunca el fotograma real).
+`backend/api.py` sirve el de `interact` en `GET /videos/{id}/render` -el
+unico que resalta APPROACH/PICK_UP/PUT_BACK-, y cae al de `track` si el
+video se proceso antes de que `interact` supiera renderizar.
 
 ## Como escribir tu etapa
 

@@ -57,16 +57,19 @@ El razonamiento completo está en [architecture.md](docs/architecture.md).
 | Detección (Personas 1–6) | Python 3.12+, Ultralytics **YOLO11n**, OpenCV |
 | Contrato de datos | Pydantic v2 (`extra="forbid"`) |
 | Formato de intercambio | JSONL (un evento por línea) |
-| Backend y API (Persona 7) | **Python** (FastAPI o equivalente) |
+| Backend y API (Persona 7) | **Python** (FastAPI), PostgreSQL |
 | Base de datos | PostgreSQL |
-| Dashboard (Persona 8) | **Python**, lo más simple que sirva |
+| Dashboard (Persona 8) | HTML/CSS/JS vanilla — **la única excepción al Python**, documentada abajo |
 | Tests | pytest |
 
-**Un solo lenguaje para las 8 personas: Python**, de la detección al dashboard.
-No usamos Java, Spring Boot, JPA, Maven, Gradle ni IntelliJ, y no hay nada de
-eso en el repositorio. Un único entorno que instalar, y cualquiera puede leer el
-código de cualquier otra. El razonamiento está en
-[architecture.md](docs/architecture.md).
+**Python para siete de las ocho piezas**, de la detección al backend. No
+usamos Java, Spring Boot, JPA, Maven, Gradle ni IntelliJ, y no hay nada de
+eso en el repositorio. El dashboard (`frontend/`) es la excepción, a
+propósito y por escrito: es un solo archivo HTML/JS sin build ni Node, para
+no obligar a nadie a instalar un segundo entorno solo para verlo funcionar.
+El razonamiento completo, incluida esa excepción, está en
+[architecture.md](docs/architecture.md) y en
+[frontend/README.md](frontend/README.md).
 
 ---
 
@@ -180,16 +183,20 @@ prueba que detecte bien.
 cd ai-service
 
 python -m gondola doctor      # diagnóstico. Empieza SIEMPRE por aquí
-python -m gondola detect      # detección de personas          (Persona 2)  hecho
-python -m gondola track       # seguimiento                    (Persona 3)  pendiente
-python -m gondola zones       # zonas y permanencia            (Persona 4)  pendiente
-python -m gondola interact    # interacción con productos      (Persona 5)  pendiente
-python -m gondola metrics     # métricas finales               (Persona 6)  pendiente
-python -m gondola run         # la cadena completa
+python -m gondola detect      # detección de personas          (Persona 2)
+python -m gondola track       # seguimiento                    (Persona 3)
+python -m gondola zones       # zonas y permanencia            (Persona 4)
+python -m gondola interact    # interacción con productos      (Persona 5)
+python -m gondola metrics     # métricas finales               (Persona 6)
+python -m gondola run         # la cadena completa (las cinco etapas de arriba)
 python -m gondola verify <archivo>   # ¿cumple el contrato y la privacidad?
 python -m gondola eval        # ¿acierta? (necesita anotaciones)
 python -m gondola purge       # borra videos y salidas de data/
 ```
+
+Las cinco etapas están hechas. Luego, para subir los resultados a
+PostgreSQL y verlos en el dashboard: [`backend/README.md`](backend/README.md)
+y [`frontend/README.md`](frontend/README.md).
 
 Opciones de `detect` (sobrescriben el `.env` solo para esa corrida):
 
@@ -254,22 +261,32 @@ Detalle, incluida la relación con la Ley 1581 de 2012, en
 |---|---|
 | Arquitectura y contrato de datos | hecho |
 | CLI y registro de etapas | hecho |
-| Detección con YOLO + render | hecho |
+| Las cinco etapas (detect, track, zones, interact, metrics) | **hechas** — ver `ai-service/gondola/stages/README.md` |
 | Verificador y evaluación | hecho |
-| Base de datos, documentación y CI | hecho |
-| Seguimiento, zonas, interacción, métricas | pendiente — Personas 3–6 |
-| Importador y API REST en Python | hecho (`backend/importer.py`, `backend/api.py`) — falta `backend/README.md` con la guía de arranque completa |
-| Dashboard | hecho (HTML/CSS/JS, ver `frontend/README.md`) — faltan recomendaciones con nivel de confianza, *edge*/Docker e integración final |
-| **Anotación de video para medir exactitud** | pendiente — **sin esto no hay cifras** |
+| Base de datos, importador y API REST | **hecho** — `backend/README.md`, `backend/api.py` |
+| Dashboard | hecho (HTML/CSS/JS, ver `frontend/README.md`): resumen por video, análisis por zona/estante, mapa de calor real por coordenadas, video anonimizado embebido, comparación completa de dos videos, retroalimentación automática, exportar a PDF/Excel |
+| Motor de recomendaciones con nivel de confianza, *edge*/Docker | pendiente — Persona 8 |
+| **Anotación de video para medir exactitud** | pendiente — sin esto no hay cifras de precisión/recall |
+
+### Lo que este sistema puede mostrar hoy
+
+`video_001` (video de Scapder) y cinco clips del dataset público **MERL
+Shopping Dataset**, ya procesados de punta a punta e importados a
+PostgreSQL — se pueden ver en vivo en el dashboard. Ver
+`backend/README.md`, sección "Videos reales importados hoy".
 
 ### Lo que este sistema todavía NO puede afirmar
 
-- **No sabemos si acierta.** Sin video anotado a mano no hay precisión ni
-  recall. Cualquier porcentaje sería inventado.
-- **Nunca se ha visto una detección positiva verificada**: los clips de prueba
-  no tienen personas, y el video real aún no se ha procesado.
-- **No mide permanencia ni interacciones todavía**: esas etapas están
-  pendientes.
+- **No sabemos con qué precisión acierta.** Sin video anotado a mano
+  (`data/groundtruth/`) no hay precisión ni recall medidos formalmente:
+  los números que se ven hoy son detecciones reales, pero nadie los ha
+  contrastado contra una anotación humana completa.
+- **`PICK_UP`/`PUT_BACK` es una convención geométrica, no visión de la
+  mano**: el sistema no ve si hay un producto en la mano, infiere la toma
+  por el patrón de movimiento (ver `ai-service/gondola/stages/interact.py`).
+- **El tracker puede fragmentar una visita** en varios `track_id` (una
+  misma persona contada como si fueran varias) — limitación documentada,
+  no corregida.
 - **Solo se ha probado en CPU.**
 
 ---

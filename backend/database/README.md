@@ -10,8 +10,8 @@ El esquema debe ser un espejo del contrato de datos
 (`ai-service/gondola/contract.py`): si un campo cambia allí, cambia aquí, y se
 sube `CONTRACT_VERSION` en los dos lados.
 
-**Lo que falta, y es de la Persona 7:** el importador que lleva los `.jsonl` del
-pipeline a estas tablas (idempotente: dos corridas del mismo archivo no
-duplican filas) y la API REST en Python que sirve las métricas.
+El importador (`backend/importer.py`, idempotente: dos corridas del mismo
+archivo no duplican filas) y la API REST (`backend/api.py`) ya están hechos
+— ver `backend/README.md` para la guía de arranque y la lista de endpoints.
 
 Cómo cargarlo y por qué el esquema es así: [`docs/database.md`](../../docs/database.md).
