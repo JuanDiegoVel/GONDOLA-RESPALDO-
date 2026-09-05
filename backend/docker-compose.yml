@@ -1,0 +1,23 @@
+# PostgreSQL para desarrollo local. Las credenciales y el puerto coinciden
+# a proposito con backend/.env.example (postgresql://gondola:gondola_dev@
+# localhost:5433/gondola): el 5433, no el 5432 de siempre, para no chocar
+# con un PostgreSQL que ya tengas instalado en la maquina.
+#
+# Arrancar:    docker compose up -d
+# Apagar:      docker compose down          (los datos sobreviven, quedan en el volumen)
+# Borrar todo: docker compose down -v       (esto SI borra los datos)
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: gondola-postgres
+    environment:
+      POSTGRES_USER: gondola
+      POSTGRES_PASSWORD: gondola_dev
+      POSTGRES_DB: gondola
+    ports:
+      - "5433:5432"
+    volumes:
+      - gondola_pg_data:/var/lib/postgresql/data
+
+volumes:
+  gondola_pg_data:

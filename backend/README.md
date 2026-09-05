@@ -11,11 +11,19 @@ ver [`docs/architecture.md`](../docs/architecture.md).
 cd backend
 python -m venv .venv && .venv\Scripts\activate   # o source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env      # ajusta DATABASE_URL a tu PostgreSQL
+cp .env.example .env      # ya trae la URL de Postgres que arma docker-compose.yml
 ```
 
-Levanta el esquema una vez (ver `database/README.md` y
-[`docs/database.md`](../docs/database.md)), y luego:
+Levanta PostgreSQL con Docker (`docker-compose.yml` en esta misma carpeta
+ya trae las credenciales que espera `.env.example`) y carga el esquema una
+sola vez — detalle completo en [`docs/database.md`](../docs/database.md):
+
+```bash
+docker compose up -d
+docker exec -i gondola-postgres psql -U gondola -d gondola < database/schema.sql
+```
+
+Y ya se puede importar y servir:
 
 ```bash
 # 1. Importa lo que el pipeline ya dejó en data/output/ para un video

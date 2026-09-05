@@ -3,11 +3,23 @@
 Esquema: [`backend/database/schema.sql`](../backend/database/schema.sql) ·
 Datos de ejemplo: [`seed_example.sql`](../backend/database/seed_example.sql)
 
+**PostgreSQL corre en Docker**, con las credenciales y el puerto que ya trae
+`backend/.env.example` (`postgresql://gondola:gondola_dev@localhost:5433/gondola`
+— el 5433, no el 5432 de siempre, para no chocar con un Postgres que ya
+tengas instalado):
+
 ```bash
-createdb gondola
-psql -U postgres -d gondola -f backend/database/schema.sql
-psql -U postgres -d gondola -f backend/database/seed_example.sql   # datos ficticios
+cd backend
+docker compose up -d
+docker exec -i gondola-postgres psql -U gondola -d gondola < database/schema.sql
+docker exec -i gondola-postgres psql -U gondola -d gondola < database/seed_example.sql   # datos ficticios, opcional
 ```
+
+`docker exec -i ... psql ... < archivo` corre `psql` **dentro** del
+contenedor, asi que no hace falta tener PostgreSQL instalado en la maquina
+para nada mas que Docker. Si prefieres un Postgres instalado a mano en vez
+de Docker, ajusta `DATABASE_URL` en `backend/.env` a como corresponda y usa
+`psql`/`createdb` normalmente contra esa instancia.
 
 > **El AI Service nunca escribe aquí.** El pipeline produce archivos `.jsonl`;
 > solo el backend los importa a PostgreSQL. El porqué está en
