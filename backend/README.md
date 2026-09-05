@@ -89,6 +89,18 @@ dashboard, pero corridos por el pipeline de verdad, no inventados a mano).
 Reutilizan la calibración de cámara de `video_001` porque comparten la
 misma resolución (920×680): ver `data/zones/README.md`.
 
+**Esto vive SOLO en la máquina donde se corrió el pipeline, no en git.**
+Estos seis videos quedaron importados en el volumen de Docker de Postgres
+de esa máquina (`gondola_pg_data`); un clon nuevo del repositorio arranca
+con `schema.sql` cargado pero la tabla `videos` **vacía** -los archivos de
+video en sí tampoco están en git, ver `data/videos/README.md`, así que ni
+siquiera se puede correr el pipeline sobre ellos sin conseguirlos aparte-.
+Para ver algo en el dashboard sin esperar a un video propio: `python -m
+gondola run` con un video que sí tengas, cargar `seed_example.sql` (datos
+ficticios con la forma exacta de los reales), o el "Modo Datos de
+Demostración" que ya trae el propio `frontend/index.html` (no necesita
+backend corriendo).
+
 ## Tests
 
 `tests/test_importer.py` y `tests/test_api.py` corren contra PostgreSQL

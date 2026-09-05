@@ -175,9 +175,13 @@ correr los tests sin descargar 3 GB de PyTorch. Lo pesado va en
   motor de recomendaciones con nivel de confianza y la optimizacion *edge*/
   Docker. Ver `frontend/README.md`.
 
-Hay 6 videos reales ya importados y visibles en el dashboard: `video_001`
+Hay 6 videos reales ya importados y visibles en el dashboard **de quien
+corrio el pipeline** -esto vive en el volumen de Docker de esa maquina, no
+en git: un clon nuevo arranca con la base de datos vacia-. `video_001`
 (Scapder) y cinco clips del dataset publico MERL Shopping Dataset. Ver
-`backend/README.md`, seccion "Videos reales importados hoy".
+`backend/README.md`, seccion "Videos reales importados hoy", para el
+detalle y las opciones (`seed_example.sql`, modo demo del frontend, o
+correr el pipeline con video propio) si la base de datos esta vacia.
 
 Sin video anotado a mano en `data/groundtruth/` no se puede afirmar una
 cifra de **precision/recall formal** todavia -eso sigue pendiente-, aunque
