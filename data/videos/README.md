@@ -12,7 +12,12 @@ Reglas:
 
 - Los videos **NO se suben a git** (pesan mucho y contienen imagenes de
   personas reales). `.gitignore` los excluye a proposito.
-- Cada quien descarga el video por su cuenta y lo pone aqui.
+- `video_001.mp4` (Scapder) no es un video publico: no hay de donde
+  descargarlo solo. Pidelo por el chat de WhatsApp del equipo -asi se
+  reparte hoy- y ponlo aqui con ese mismo nombre.
+- Los clips del MERL Shopping Dataset SI son publicos (ver mas abajo), pero
+  tambien se pueden pedir por WhatsApp para no tener que descargar el zip
+  completo del dataset solo para cinco clips.
 - `VIDEO_ID` es la etiqueta corta que quedara escrita en cada evento de salida.
   Si trabajas con otro video, cambia tambien el `VIDEO_ID`.
 
