@@ -227,7 +227,16 @@ def video_renderizado(video_id: str) -> FileResponse:
 
     Devuelve 404 si el video no tiene NINGUNO de los dos en disco: no todos
     lo tienen (RENDER_MODE=none corre mas rapido, o alguien pudo borrar
-    data/output/ con 'python -m gondola purge' despues de importar)."""
+    data/output/ con 'python -m gondola purge' despues de importar).
+
+    `Cache-Control: no-cache` a proposito: sin este header, el navegador
+    puede reusar una copia vieja del video de su cache local sin siquiera
+    preguntarle a este servidor -bug real, encontrado en la practica: el
+    archivo en disco ya tenia el contador de "productos" nuevo, pero el
+    navegador seguia mostrando la version de antes de reprocesar el video-.
+    "no-cache" no significa "no guardes nada": significa "revalida con el
+    servidor (ETag/Last-Modified) antes de usar lo que tengas guardado", asi
+    que sigue siendo rapido cuando el video no cambio, y correcto cuando si."""
     ruta = RENDER_DIR / f"{video_id}.interact.privacy.mp4"
     if not ruta.exists():
         ruta = RENDER_DIR / f"{video_id}.track.privacy.mp4"
@@ -240,7 +249,7 @@ def video_renderizado(video_id: str) -> FileResponse:
                 "RENDER_MODE=privacy en ai-service/.env para ese video."
             ),
         )
-    return FileResponse(ruta, media_type="video/mp4")
+    return FileResponse(ruta, media_type="video/mp4", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/videos/{video_id}/positions")
