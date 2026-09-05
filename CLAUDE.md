@@ -32,10 +32,9 @@ esta en [`frontend/README.md`](frontend/README.md). Si vas a seguir
 tocando el dashboard, lee ese archivo primero.
 
 **No se usa Java, Spring Boot, JPA, Maven, Gradle ni IntelliJ.** No hay una sola
-linea de eso en el repositorio y no debe aparecer ninguna. Que `backend/` hoy
-solo contenga `.sql` no significa que el backend sea de otro lenguaje: significa
-que la Persona 7 aun no ha escrito el importador ni la API, y los escribira en
-Python.
+linea de eso en el repositorio y no debe aparecer ninguna. `backend/` ya
+tiene su importador (`importer.py`) y su API REST (`api.py`) en Python,
+ademas del esquema SQL — ver [`backend/README.md`](backend/README.md).
 
 El criterio es un unico lenguaje para las 8 personas: un solo entorno que
 instalar, y cualquiera puede leer y arreglar el codigo de cualquier otra. Vale
@@ -84,17 +83,22 @@ Cambiar la forma del evento implica subir `CONTRACT_VERSION`, actualizar
 
 ## Ejecutar el proyecto
 
-Todo pasa por la CLI. Se ejecuta desde `ai-service/`, que es donde vive el
-paquete:
+Tres capas, en orden. El pipeline pasa por la CLI, desde `ai-service/`:
 
 ```
 cd ai-service
 python -m gondola doctor     # diagnostico; empieza SIEMPRE por aqui
-python -m gondola run        # la cadena completa
+python -m gondola run        # la cadena completa (las cinco etapas: hechas)
 ```
 
 Codigos de salida: 0 exito, 1 error de ejecucion, 2 falta un requisito (el
 video o el archivo de la etapa anterior).
+
+Para subir los resultados a PostgreSQL y verlos en el dashboard, hace falta
+Docker (PostgreSQL corre en un contenedor, no instalado a mano): ver
+[`backend/README.md`](backend/README.md) (arranque, endpoints,
+`docker-compose.yml`) y [`frontend/README.md`](frontend/README.md)
+(el dashboard se abre directo con el navegador, sin build).
 
 ## Convenciones
 
@@ -134,22 +138,36 @@ correr los tests sin descargar 3 GB de PyTorch. Lo pesado va en
 - **Fase 1 (hecha):** estructura, contrato, configuracion, errores, logging,
   documentacion del contrato, tests unitarios.
 - **Fase 2 (hecha):** registro de etapas, CLI (`doctor`, `run`, `purge` y las
-  cinco etapas como placeholders), lectura y escritura de .jsonl en streaming.
+  cinco etapas), lectura y escritura de .jsonl en streaming.
 - **Fase 3 (hecha):** lectura de video (`gondola/video/reader.py`), deteccion
   YOLO (`gondola/stages/detect.py`), render en modo privacy/debug
-  (`gondola/video/render.py`) y clips sinteticos de prueba.
+  (`gondola/video/render.py`, H.264 -ver `data/models/README.md` sobre la
+  libreria `openh264` en Windows-) y clips sinteticos de prueba.
 - **Fase 4 (hecha):** verificador de contrato y privacidad
   (`gondola/verify/`) y evaluacion contra `groundtruth` (`gondola/evaluate/`).
 - **Fase 5 (hecha):** esquema SQL y datos de ejemplo (`backend/database/`),
   documentacion (`docs/`), CI en GitHub Actions y README completo.
+- **Fase 6 (hecha):** las cuatro etapas que faltaban del pipeline -
+  `track` (Persona 3), `zones` (Persona 4), `interact` (Persona 5, ademas
+  renderiza su propio video resaltando APPROACH/PICK_UP/PUT_BACK) y
+  `metrics` (Persona 6, agrega por gondola Y por estante)-. Todas
+  implementadas, sin placeholders. Ver `ai-service/gondola/stages/README.md`.
+- **Fase 7 (hecha):** importador idempotente y API REST (Persona 7,
+  `backend/`) -incluye posiciones para un mapa de calor real y el video
+  renderizado servido por HTTP-. Ver `backend/README.md`.
+- **Fase 8 (hecha, primera version):** dashboard (Persona 8, `frontend/`):
+  resumen por video, analisis por zona/estante, mapa de calor real por
+  coordenadas, video anonimizado embebido, comparacion completa de dos
+  videos, retroalimentacion automatica, exportar a PDF/Excel. Falta el
+  motor de recomendaciones con nivel de confianza y la optimizacion *edge*/
+  Docker. Ver `frontend/README.md`.
 
-Lo que sigue NO es una fase de arquitectura: son los modulos del equipo.
-`track` (Persona 3), `zones` (Persona 4), `interact` (Persona 5) y `metrics`
-(Persona 6) siguen siendo placeholders en la CLI. Cada uno crea su archivo en
-`gondola/stages/` y rellena SOLO sus campos del contrato.
+Hay 6 videos reales ya importados y visibles en el dashboard: `video_001`
+(Scapder) y cinco clips del dataset publico MERL Shopping Dataset. Ver
+`backend/README.md`, seccion "Videos reales importados hoy".
 
-Sin video anotado a mano en `data/groundtruth/` no se puede afirmar nada sobre
-la exactitud del sistema. Ningun porcentaje de precision es publicable hasta
-entonces.
+Sin video anotado a mano en `data/groundtruth/` no se puede afirmar una
+cifra de **precision/recall formal** todavia -eso sigue pendiente-, aunque
+ya hay deteccion, interaccion y metricas funcionando sobre video real.
 
-No construir cosas de fases futuras.
+No construir cosas de fases futuras que no se hayan pedido.
