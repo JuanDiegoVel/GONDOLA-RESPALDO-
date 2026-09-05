@@ -36,9 +36,18 @@ archivo, ~1200 líneas). Se dice en voz alta en vez de esconderlo:
 
 ## Qué hace
 
-- Selector de video, con etiqueta clara de si son datos reales o de prueba
-  (`video_id` que empieza por `video_demo_` → "PRUEBA"; cualquier otro →
-  "PRODUCCIÓN REAL").
+- Portada de bienvenida (`renderPantallaInicio()`) al abrir el archivo: el
+  logo, un resumen de qué hace el proyecto y qué puede hacer, y un botón
+  "Entrar al panel". Es una portada, no una pantalla de carga: no vuelve a
+  aparecer hasta que se recarga la página.
+- Selector de video, con etiqueta clara de si son datos reales o de prueba.
+  La etiqueta NO se basa en el prefijo del `video_id` (se rompía con videos
+  reales importados como `video_demo_merl_*`, del dataset MERL Shopping
+  Dataset): en modo demo usa el prefijo `video_demo_`, conectado a la API
+  real usa una lista explícita de los videos que sí pasaron por el pipeline
+  (`VIDEOS_REALES_CONOCIDOS` en `index.html`) — todo lo demás que devuelva
+  la API pero no esté ahí (fixtures viejos armados a mano, como
+  `video_demo_001`/`video_demo_002`) también se etiqueta "PRUEBA".
 - Resumen general (personas, interacciones, pick-ups, put-backs, tasa de
   rechazo, permanencia media), con los números animados al cargar (cuentan
   hacia arriba, no aparecen de golpe).
@@ -62,6 +71,32 @@ archivo, ~1200 líneas). Se dice en voz alta en vez de esconderlo:
   de ningún video ni cálculo real. Siempre etiquetados como prueba en la UI.
   Un modal (ícono ⚙️ en el header) permite apagar el modo demo, cambiar la
   URL de la API o probar la conexión.
+- Video anonimizado embebido: `GET /videos/{id}/render` reproducido en un
+  `<video>` normal (fondo gris inventado, cajas de detección, y una
+  insignia + contador acumulado de "productos" en la cabecera cuando hay
+  un PICK_UP/PUT_BACK). El `<video>` vive en un "portal" fuera de `#root`
+  (`crearReproductorPersistente()` en `index.html`), no dentro de la
+  plantilla que se reconstruye en cada `render()`: si viviera ahí adentro,
+  cada dato nuevo que llega (zonas, posiciones, métricas llegan por
+  separado) interrumpía la descarga a medias y el navegador la reportaba
+  como error aunque el servidor respondiera bien — bug real, ya resuelto.
+- "Retroalimentación": explica en lenguaje llano por qué salen ciertos
+  números (tasas en 0%, conteos que no cuadran, video demasiado corto),
+  sin tener que ver el video completo. Reglas simples sobre los números ya
+  calculados, nada de IA (`generarNotasFeedback()`).
+- **Comparar dos videos**, en su propio apartado (botón junto al selector,
+  no una tarjeta más de la pantalla principal — mezclar los dos causaba el
+  mismo bug de video en blanco que arriba). Trae el paquete completo de
+  cada video (`loadCompareData()`) y muestra, lado a lado: resumen general,
+  análisis por zona, mapa de calor, resumen por zona y retroalimentación —
+  no solo 4 números sueltos. El mismo video no se puede elegir en los dos
+  lados a la vez.
+- **Exportar a PDF y Excel** (botones junto al selector, solo si hay un
+  video elegido): PDF usa `window.print()` con una hoja de estilos de
+  impresión que oculta botones/navegación y agrega un encabezado de
+  reporte — el texto queda seleccionable en el PDF, no es una captura de
+  pantalla. Excel descarga un `.csv` (sin librerías nuevas) con el mismo
+  resumen, tabla por zona y retroalimentación que se ve en pantalla.
 
 ### Sistema de diseño (para quien lo siga tocando)
 
@@ -99,6 +134,8 @@ archivo, ~1200 líneas). Se dice en voz alta en vez de esconderlo:
 - El mapa de calor por coordenadas no dibuja los contornos de las góndolas
   ni del piso de la tienda sobre la densidad (solo el fondo oscuro liso):
   falta un plano de referencia para superponer.
+- Exportar a PDF/Excel solo existe en el panel de un solo video, no en la
+  vista de comparación.
 
 ## Limitaciones del video actual (`video_001`)
 
