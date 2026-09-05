@@ -81,6 +81,20 @@ Las etapas **enriquecen** el mismo evento; nunca inventan formatos:
 Cambiar la forma del evento implica subir `CONTRACT_VERSION`, actualizar
 `docs/data-contract.md` y avisar al equipo. Nunca por cuenta propia.
 
+## Primer arranque: un solo comando
+
+Antes de nada, **`python scripts/setup.py`** deja el proyecto listo:
+copia los `.env`, instala las dependencias ligeras, levanta PostgreSQL con
+Docker y carga el esquema, y en Windows descarga la libreria `openh264`
+que hace falta para los videos renderizados. Es seguro correrlo varias
+veces -cada paso comprueba si ya esta hecho antes de repetirlo-. Con
+`--full` ademas instala PyTorch/YOLO (~3 GB); con `--model` ademas
+descarga `yolo11n.pt`. Detalle completo en el docstring del propio script.
+
+Si alguien (persona o Claude Code) pide "prepara/instala/arranca el
+proyecto" y todavia no se ha corrido esto en la maquina, este es el primer
+paso, antes de instalar nada a mano.
+
 ## Ejecutar el proyecto
 
 Tres capas, en orden. El pipeline pasa por la CLI, desde `ai-service/`:
@@ -94,11 +108,10 @@ python -m gondola run        # la cadena completa (las cinco etapas: hechas)
 Codigos de salida: 0 exito, 1 error de ejecucion, 2 falta un requisito (el
 video o el archivo de la etapa anterior).
 
-Para subir los resultados a PostgreSQL y verlos en el dashboard, hace falta
-Docker (PostgreSQL corre en un contenedor, no instalado a mano): ver
-[`backend/README.md`](backend/README.md) (arranque, endpoints,
-`docker-compose.yml`) y [`frontend/README.md`](frontend/README.md)
-(el dashboard se abre directo con el navegador, sin build).
+Para subir los resultados a PostgreSQL y verlos en el dashboard: ver
+[`backend/README.md`](backend/README.md) (arranque, endpoints) y
+[`frontend/README.md`](frontend/README.md) (el dashboard se abre directo
+con el navegador, sin build).
 
 ## Convenciones
 

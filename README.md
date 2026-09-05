@@ -104,20 +104,18 @@ PROYECTO GONDOLA INTELIGENTE/
 ```bash
 git clone <url-del-repo>
 cd "PROYECTO GONDOLA INTELIGENTE"
-cp .env.example .env
+python scripts/setup.py
 ```
 
-**Para correr los tests** (ligero, unos MB):
+`scripts/setup.py` detecta e instala lo que falte: copia los `.env`,
+instala las dependencias ligeras (ai-service y backend), levanta
+PostgreSQL con Docker y carga el esquema, y en Windows descarga la
+librería `openh264` que hace falta para reproducir los videos renderizados
+en un navegador. Es seguro correrlo varias veces. Opciones:
 
 ```bash
-pip install -r requirements-dev.txt
-pytest
-```
-
-**Para ejecutar el pipeline** (pesado, ~3 GB: arrastra PyTorch):
-
-```bash
-pip install -r requirements.txt
+python scripts/setup.py --full     # ademas instala PyTorch/YOLO (~3 GB)
+python scripts/setup.py --model    # ademas descarga data/models/yolo11n.pt
 ```
 
 Comprueba que todo está en su sitio:
