@@ -74,6 +74,165 @@
     *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   }
 
+  /* ==========================================================================
+     MODO OSCURO
+     ==========================================================================
+     El dashboard esta escrito con clases de Tailwind sueltas por todo el
+     archivo (bg-white, text-[#2F3437], etc.), no con un sistema de variables
+     de color: agregar "dark:" a cada una de las ~2000 lineas de render*()
+     hubiera sido un cambio enorme y muy propenso a error para una sola
+     sesion. En vez de eso, este bloque intercepta esas MISMAS clases por su
+     nombre literal con selectores de atributo (`[class~="..."]`, que exige
+     que el token aparezca completo separado por espacios: no hay riesgo de
+     que "bg-slate-50" tambien capture "text-slate-500" por accidente, como
+     si pasaria con un simple *=). Activado agregando/quitando la clase
+     "dark" en <html> (ver toggle-dark-mode en el manejador de acciones y el
+     `document.documentElement.classList.toggle('dark', ...)` al inicio de
+     render()). Colores elegidos para mantener el mismo significado semantico
+     (verde=exito, ambar=alerta, rojo=peligro, azul=acento) con suficiente
+     contraste sobre fondos oscuros, no solo invertir blanco/negro. */
+  html.dark { color-scheme: dark; }
+  html.dark body.app-bg {
+    background-color: #17171a;
+    background-image:
+      radial-gradient(ellipse 70% 45% at 15% -8%, rgb(31 108 159 / 0.10), transparent 60%),
+      radial-gradient(ellipse 60% 45% at 100% 100%, rgb(31 108 159 / 0.08), transparent 60%);
+  }
+  html.dark [class~="text-[#2F3437]"] { color: #EDEBE7; }
+  html.dark [class~="text-[#111111]"] { color: #F5F3F0; }
+  /* Superficies: tarjetas/paneles (antes blancas u off-white casi blanco) */
+  html.dark [class~="bg-white"],
+  html.dark [class~="bg-[#F9F9F8]"] { background-color: #232326; }
+  html.dark [class~="bg-[#F7F6F3]"],
+  html.dark [class~="bg-[#F3F2EF]"],
+  html.dark [class~="bg-slate-50"],
+  html.dark [class~="bg-slate-100"] { background-color: #1d1d20; }
+  html.dark [class~="bg-slate-200"] { background-color: #35353a; }
+  html.dark [class~="bg-slate-300"] { background-color: #46464c; }
+  html.dark [class~="bg-slate-800"] { background-color: #2c2c30; }
+  html.dark [class~="bg-slate-900"] { background-color: #232326; }
+  html.dark [class~="bg-[#D6D3D1]"] { background-color: #46464c; }
+  html.dark [class~="bg-[#EAEAEA]"] { background-color: #2c2c30; }
+  /* Bordes */
+  html.dark [class~="border-slate-100"],
+  html.dark [class~="border-slate-200"],
+  html.dark [class~="border-[#EAEAEA]"],
+  html.dark [class~="border-[#F3F2EF]"] { border-color: #38383d; }
+  html.dark [class~="border-slate-300"],
+  html.dark [class~="border-[#D6D3D1]"] { border-color: #46464c; }
+  html.dark [class~="border-black"] { border-color: #4a4a50; }
+  /* Texto en escala de gris: el orden se invierte a proposito -slate-900
+     era el mas oscuro/prominente en claro, aqui debe ser el mas claro- */
+  html.dark [class~="text-slate-900"] { color: #F5F3F0; }
+  html.dark [class~="text-slate-700"],
+  html.dark [class~="text-[#44403C]"] { color: #D6D3CE; }
+  html.dark [class~="text-slate-600"],
+  html.dark [class~="text-[#57534E]"] { color: #B7B4AD; }
+  html.dark [class~="text-slate-500"],
+  html.dark [class~="text-[#787774]"] { color: #96938C; }
+  html.dark [class~="text-slate-400"],
+  html.dark [class~="text-[#A8A29E]"] { color: #6E6B65; }
+  html.dark [class~="text-[#D6D3D1]"] { color: #8B887F; }
+  html.dark [class~="text-[#E5E3DE]"] { color: #E5E3DE; }
+  /* Acento azul de marca: mismo tono, un poco mas claro para contraste */
+  html.dark [class~="text-[#1F6C9F]"] { color: #5CACD9; }
+  html.dark [class~="hover:text-[#18567D]"]:hover { color: #7EC2E6; }
+  html.dark [class~="bg-[#1F6C9F]"] { background-color: #2D82B5; }
+  html.dark [class~="hover:bg-[#18567D]"]:hover { background-color: #256E92; }
+  html.dark [class~="border-[#1F6C9F]"] { border-color: #5CACD9; }
+  /* Exito/verde */
+  html.dark [class~="bg-emerald-50"],
+  html.dark [class~="bg-[#EDF3EC]"] { background-color: #16261c; }
+  html.dark [class~="border-emerald-200"],
+  html.dark [class~="border-[#C7D6C5]"] { border-color: #2d4436; }
+  html.dark [class~="text-emerald-600"],
+  html.dark [class~="text-emerald-900"],
+  html.dark [class~="text-[#346538]"],
+  html.dark [class~="text-[#2B5230]"] { color: #7FCE9C; }
+  /* Alerta/ambar */
+  html.dark [class~="bg-amber-50"],
+  html.dark [class~="bg-[#FBF3DB]"] { background-color: #2b2410; }
+  html.dark [class~="border-amber-200"],
+  html.dark [class~="border-[#EDD9A3]"] { border-color: #4a3c17; }
+  html.dark [class~="text-amber-600"],
+  html.dark [class~="text-amber-800"],
+  html.dark [class~="text-amber-900"],
+  html.dark [class~="text-[#956400]"],
+  html.dark [class~="text-[#7A5200]"],
+  html.dark [class~="hover:text-[#5C3F00]"]:hover,
+  html.dark [class~="text-[#B8790B]"] { color: #E8B84D; }
+  /* Peligro/rojo */
+  html.dark [class~="bg-red-50"] { background-color: #341414; }
+  html.dark [class~="border-red-100"],
+  html.dark [class~="border-red-200"] { border-color: #4a2320; }
+  html.dark [class~="text-red-600"],
+  html.dark [class~="text-red-800"],
+  html.dark [class~="text-red-900"],
+  html.dark [class~="text-[#9F2F2D]"],
+  html.dark [class~="text-[#7F2523]"] { color: #F09891; }
+  /* Indigo (modal de configuracion) */
+  html.dark [class~="bg-indigo-50"],
+  html.dark [class~="bg-indigo-100"] { background-color: #201f42; }
+  html.dark [class~="bg-indigo-600"] { background-color: #6366F1; }
+  html.dark [class~="text-indigo-600"],
+  html.dark [class~="text-indigo-700"] { color: #ABB4FA; }
+  html.dark [class~="border-indigo-200"] { border-color: #34346b; }
+  /* Superficies oscuras que YA eran oscuras en modo claro (tarjeta de
+     privacidad, placeholder de video): se dejan iguales, solo se separa
+     un poco mas el borde para que no se fundan con el fondo de pagina. */
+  html.dark [class~="border-[#3A3F42]"] { border-color: #4a4f52; }
+  html.dark [class~="border-dashed"] { border-color: #46464c; }
+  html.dark .skeleton {
+    background: linear-gradient(100deg, #232326 30%, #2c2c30 45%, #232326 60%);
+    background-size: 250% 100%;
+  }
+  html.dark [class~="shadow-xs"],
+  html.dark [class~="shadow-sm"] { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4); }
+  html.dark [class~="shadow-xl"] { box-shadow: 0 20px 40px -10px rgb(0 0 0 / 0.6); }
+  /* Estados :hover -son un token de clase DISTINTO ("hover:bg-slate-100"
+     no es "bg-slate-100"), asi que necesitan su propia regla aparte. */
+  html.dark [class~="hover:bg-[#EAEAEA]"]:hover,
+  html.dark [class~="hover:bg-[#F7F6F3]"]:hover,
+  html.dark [class~="hover:bg-slate-100"]:hover { background-color: #2c2c30; }
+  html.dark [class~="hover:bg-slate-200"]:hover { background-color: #38383d; }
+  html.dark [class~="hover:bg-slate-800"]:hover { background-color: #3a3a40; }
+  html.dark [class~="hover:bg-indigo-100"]:hover { background-color: #2b2a57; }
+  html.dark [class~="hover:text-[#111111]"]:hover,
+  html.dark [class~="hover:text-slate-900"]:hover { color: #F5F3F0; }
+  html.dark [class~="hover:text-slate-700"]:hover { color: #D6D3CE; }
+  html.dark [class~="hover:text-[#787774]"]:hover { color: #96938C; }
+  /* Variantes con opacidad ("bg-slate-50/70") son tambien un token distinto */
+  html.dark [class~="bg-slate-50/70"],
+  html.dark [class~="bg-slate-200/70"] { background-color: rgb(35 35 38 / 0.7); }
+  html.dark [class~="bg-red-50/70"] { background-color: rgb(52 20 20 / 0.7); }
+  html.dark [class~="bg-slate-900/60"] { background-color: rgb(0 0 0 / 0.6); }
+  /* Tarjetas con degradado puesto por style="" inline (no una clase de
+     Tailwind): un inline style le gana a CUALQUIER selector de clase por
+     especificidad, sin importar el orden -esta fue la causa real de que
+     "Mapa de Calor Real" y las tarjetas de gondola/estante se vieran
+     lavadas en modo oscuro, con texto casi invisible sobre un fondo que
+     seguia blanco-. Un !important en la hoja de estilos SI le gana a un
+     inline style sin !important (regla poco conocida de CSS), asi que se
+     engancha por el propio valor del atributo style con [style*="..."]. */
+  html.dark [style*="linear-gradient(165deg,#FFFFFF 0%,#EEF1F0 100%)"] { background: linear-gradient(165deg,#1d1d20 0%,#232326 100%) !important; }
+  html.dark [style*="linear-gradient(160deg,#FFFFFF 0%,#F3F2EF 100%)"] { background: linear-gradient(160deg,#1d1d20 0%,#232326 100%) !important; }
+  /* <select> nativo: color-scheme le pide al navegador que dibuje sus
+     controles nativos (incluida la lista desplegable) en tema oscuro, pero
+     algunos navegadores solo lo respetan si tambien se fija en el elemento
+     mismo, no solo en un ancestro. */
+  html.dark select, html.dark option { color-scheme: dark; background-color: #232326; color: #EDEBE7; }
+  /* Variantes con opacidad de colores arbitrarios ("bg-[#EDF3EC]/60"): son
+     un token de clase distinto a "bg-[#EDF3EC]" (sin opacidad), asi que
+     necesitan su propia regla -eran las tarjetas de "Diagnostico" que se
+     veian lavadas: el fondo se quedaba claro y translucido sobre una
+     tarjeta ya oscura, con el texto (ya oscurecido por su propia regla)
+     casi invisible encima-. */
+  html.dark [class~="bg-[#EDF3EC]/60"] { background-color: rgb(22 38 28 / 0.6); }
+  html.dark [class~="bg-[#FBF3DB]/40"] { background-color: rgb(43 36 16 / 0.5); }
+  html.dark [class~="bg-[#1F6C9F]/10"] { background-color: rgb(92 172 217 / 0.15); }
+  html.dark [class~="border-[#1F6C9F]/40"] { border-color: rgb(92 172 217 / 0.4); }
+  html.dark [class~="border-black/5"] { border-color: rgb(255 255 255 / 0.08); }
+
   /* Reporte en PDF: window.print() sobre la pantalla normal, ocultando lo
      que no tiene sentido en papel (botones, el reproductor de video, el
      portal del video que vive fuera de #root) y mostrando un encabezado de
@@ -332,6 +491,15 @@ const state = {
   // al panel" (ver renderPantallaInicio) y no vuelve a aparecer hasta que
   // se recarga la pagina -no es una pantalla de carga, es una portada.
   mostrandoInicio: true,
+  // Modo oscuro: se recuerda por navegador (localStorage). Si nunca se ha
+  // tocado el interruptor, se sigue la preferencia del sistema operativo
+  // (prefers-color-scheme) en vez de forzar claro para todos.
+  darkMode: localStorage.getItem('gondola_dark_mode') !== null
+    ? localStorage.getItem('gondola_dark_mode') === 'true'
+    : window.matchMedia('(prefers-color-scheme: dark)').matches,
+  // Estilo del mapa de calor real (ver HEATMAP_ESTILOS): un solo estilo
+  // para toda la pantalla (principal y comparacion), no uno por video.
+  heatmapStyle: localStorage.getItem('gondola_heatmap_style') || 'contraste',
   apiBaseUrl: localStorage.getItem('gondola_api_base_url') || DEFAULT_API_BASE_URL,
   useMockMode: localStorage.getItem('gondola_use_mock_mode') !== null
     ? localStorage.getItem('gondola_use_mock_mode') === 'true'
@@ -610,6 +778,11 @@ function renderHeader() {
       <div class="flex items-center gap-2 px-3 py-1.5 bg-[#F3F2EF] rounded-md border border-[#EAEAEA] text-xs">
         ${statusHtml}
         <div class="h-3 w-px bg-[#D6D3D1]"></div>
+        <button type="button" data-action="toggle-dark-mode"
+                class="p-0.5 hover:bg-[#EAEAEA] rounded text-[#57534E] hover:text-[#111111] transition-colors"
+                title="${state.darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}" aria-label="Cambiar modo claro/oscuro">
+          ${icon(state.darkMode ? 'sun' : 'moon', 'w-3.5 h-3.5')}
+        </button>
         <button type="button" data-action="open-settings"
                 class="p-0.5 hover:bg-[#EAEAEA] rounded text-[#57534E] hover:text-[#111111] transition-colors"
                 title="Configuración de conexión con la API" aria-label="Configuración de la API">
@@ -889,7 +1062,18 @@ window.addEventListener('resize', () => {
 });
 
 function _urlDeRender(videoId) {
-  return `${cleanBaseUrl(state.apiBaseUrl)}/videos/${encodeURIComponent(videoId)}/render`;
+  // El navegador puede haber cacheado una copia del video de ANTES de que
+  // se reprocesara (ej. un contador nuevo en la cabecera): Ctrl+Shift+R no
+  // lo evita, porque este <video> se carga por JavaScript, no como parte
+  // de la navegacion inicial de la pagina (ver crearReproductorPersistente,
+  // el patron "portal"). `processed_at` cambia cada vez que el video se
+  // reprocesa, asi que agregarlo como query string vuelve la URL distinta
+  // y fuerza una descarga nueva -sin esto, Cache-Control: no-cache en
+  // backend/api.py no sirve de nada si el navegador nunca vuelve a
+  // preguntarle al servidor-.
+  const video = state.videos.find((v) => v.video_id === videoId);
+  const base = `${cleanBaseUrl(state.apiBaseUrl)}/videos/${encodeURIComponent(videoId)}/render`;
+  return video?.processed_at ? `${base}?processed_at=${encodeURIComponent(video.processed_at)}` : base;
 }
 
 function _initSlot(reproductor, placeholderId, videoId) {
@@ -1442,8 +1626,14 @@ function renderPositionsHeatmap(bundle = bundleDe()) {
           <p class="text-[11px] text-[#787774]">Densidad de ${formatNumber(bundle.positions.length)} posiciones detectadas, en píxeles del frame original</p>
         </div>
       </div>
-      <div class="flex items-center gap-1.5 text-[10px] text-[#787774] shrink-0">
-        <span>Menos</span><div class="w-24 h-2 rounded" style="background:linear-gradient(90deg,#0B1220,#1F6C9F,#5AD1E0,#FFF06B,#E0472C)"></div><span>Más</span>
+      <div class="flex items-center gap-2.5 shrink-0">
+        <select id="heatmap-style-select" class="text-[11px] font-medium text-[#57534E] bg-[#F7F6F3] border border-[#EAEAEA] rounded-md px-1.5 py-1 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                title="Estilo visual del mapa de calor">
+          ${Object.entries(HEATMAP_ESTILOS).map(([key, e]) => `<option value="${key}" ${state.heatmapStyle === key ? 'selected' : ''}>${esc(e.label)}</option>`).join('')}
+        </select>
+        <div class="flex items-center gap-1.5 text-[10px] text-[#787774]">
+          <span>Menos</span><div class="w-16 h-2 rounded" style="background:${(HEATMAP_ESTILOS[state.heatmapStyle] || HEATMAP_ESTILOS.contraste).legendCss}"></div><span>Más</span>
+        </div>
       </div>
     </div>
     <div class="relative mt-3 mx-auto" style="max-width:640px">
@@ -1459,6 +1649,56 @@ function renderPositionsHeatmap(bundle = bundleDe()) {
   </div>`;
 }
 
+// Estilos del mapa de calor: heatmap.js no solo pinta colores distintos
+// con la opcion `gradient` (stop 0-1 -> color), tambien cambia de "sentir"
+// segun el radio de cada punto y cuanto se difumina (`blur`). Cada estilo
+// de aqui cambia las dos cosas a la vez -no solo repintar el mismo blob
+// con otro color-, para que se note una diferencia real al cambiar:
+//   - clasico: el de siempre (heatmap.js sin `gradient` propio).
+//   - azul: un solo tono (el azul de marca), mas discreto.
+//   - contraste: puntos mas chicos y sin difuminar casi nada -sirve para
+//     ubicar el punto exacto de mayor concentracion, no la forma general-.
+//   - suave: puntos grandes y muy difuminados -sirve para ver el patron
+//     general de circulacion, no puntos exactos-.
+// `legendCss` es el MISMO degradado, pero como string de CSS para pintar
+// la barra "Menos -> Mas": tiene que coincidir con `gradient` a mano
+// porque heatmap.js y `background: linear-gradient()` no comparten formato.
+const HEATMAP_ESTILOS = {
+  clasico: {
+    label: 'Clásico',
+    radiusFactor: 0.035, radiusMin: 16, blur: 0.85, maxOpacity: 0.9, minOpacity: 0,
+    gradient: undefined, // heatmap.js sin `gradient` usa el suyo (azul->cian->verde->amarillo->rojo)
+    legendCss: 'linear-gradient(90deg,#0B1220,#1F6C9F,#5AD1E0,#FFF06B,#E0472C)',
+  },
+  azul: {
+    label: 'Monocromático',
+    radiusFactor: 0.035, radiusMin: 16, blur: 0.85, maxOpacity: 0.85, minOpacity: 0,
+    gradient: { 0.2: 'rgba(31,108,159,0.25)', 0.4: 'rgba(31,108,159,0.55)', 0.65: '#1F6C9F', 0.85: '#18567D', 1.0: '#0B3B5C' },
+    legendCss: 'linear-gradient(90deg,rgba(31,108,159,0.2),#5CACD9,#1F6C9F,#0B3B5C)',
+  },
+  contraste: {
+    label: 'Alto contraste',
+    radiusFactor: 0.02, radiusMin: 9, blur: 0.35, maxOpacity: 1, minOpacity: 0.05,
+    gradient: { 0.3: '#1F6C9F', 0.6: '#FFD400', 0.85: '#FF7A00', 1.0: '#E0472C' },
+    legendCss: 'linear-gradient(90deg,#1F6C9F,#FFD400,#FF7A00,#E0472C)',
+  },
+  suave: {
+    label: 'Difuminado',
+    radiusFactor: 0.065, radiusMin: 30, blur: 0.97, maxOpacity: 0.7, minOpacity: 0,
+    gradient: { 0.2: 'rgba(93,155,201,0.2)', 0.45: '#8FD3C9', 0.7: '#FFE08A', 1.0: '#F2A65A' },
+    legendCss: 'linear-gradient(90deg,rgba(93,155,201,0.15),#8FD3C9,#FFE08A,#F2A65A)',
+  },
+};
+
+// Intervalo de la animacion "viva" por contenedor (ver mas abajo): un
+// mapa nombre-de-contenedor -> id de setInterval, para poder apagar el de
+// una llamada anterior antes de prender uno nuevo. Sin esto, cada
+// render() -que llama a pintarHeatmap() de nuevo, ver el final del
+// archivo- dejaria un setInterval viejo corriendo para siempre sobre un
+// <canvas> que ya no existe (pintarHeatmap borra el contenedor entero con
+// container.innerHTML = '' en cada llamada).
+const HEATMAP_TIMERS = {};
+
 // Pinta heatmap.js dentro de #<containerId>. Se llama despues de cada
 // render() (ver fillCountUps() mas abajo), nunca durante: heatmap.js
 // necesita medir el contenedor ya insertado en el DOM (container.clientWidth)
@@ -1466,6 +1706,7 @@ function renderPositionsHeatmap(bundle = bundleDe()) {
 // state directamente) para poder pintar el mapa de CUALQUIER video -el
 // principal o los de la comparacion-, cada uno en su propio contenedor.
 function pintarHeatmap(containerId, positions) {
+  if (HEATMAP_TIMERS[containerId]) { clearInterval(HEATMAP_TIMERS[containerId]); delete HEATMAP_TIMERS[containerId]; }
   const container = document.getElementById(containerId);
   if (!container || typeof h337 === 'undefined') return;
   const frameWidth = Number(container.dataset.frameWidth);
@@ -1473,13 +1714,16 @@ function pintarHeatmap(containerId, positions) {
   if (!frameWidth || !frameHeight || !container.clientWidth) return;
 
   container.innerHTML = '';
-  const heatmap = h337.create({
+  const estilo = HEATMAP_ESTILOS[state.heatmapStyle] || HEATMAP_ESTILOS.contraste;
+  const configHeatmap = {
     container,
-    radius: Math.max(16, Math.round(container.clientWidth * 0.035)),
-    maxOpacity: 0.9,
-    minOpacity: 0,
-    blur: 0.85,
-  });
+    radius: Math.max(estilo.radiusMin, Math.round(container.clientWidth * estilo.radiusFactor)),
+    maxOpacity: estilo.maxOpacity,
+    minOpacity: estilo.minOpacity,
+    blur: estilo.blur,
+  };
+  if (estilo.gradient) configHeatmap.gradient = estilo.gradient;
+  const heatmap = h337.create(configHeatmap);
 
   // heatmap.js pinta en pixeles de pantalla, no en pixeles del frame
   // original: hay que reescalar cada (x, y) a como se ve el contenedor
@@ -1502,6 +1746,21 @@ function pintarHeatmap(containerId, positions) {
   });
   const max = Math.max(1, ...data.map((d) => d.value));
   heatmap.setData({ max, data });
+
+  // "Vivo": cada punto flucti­a su intensidad por su cuenta (no toda la
+  // imagen escalando junta, que se ve mecanico) -como el parpadeo de una
+  // brasa-. Se re-jitterea el MISMO array de puntos cada ~200ms; nunca se
+  // recalcula desde `positions`, asi que la posicion de cada zona caliente
+  // no se mueve, solo su intensidad. Respeta prefers-reduced-motion, igual
+  // que el resto del dashboard (ver el <style> de mas arriba).
+  const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!sinMovimiento && data.length) {
+    HEATMAP_TIMERS[containerId] = setInterval(() => {
+      if (!document.getElementById(containerId)) { clearInterval(HEATMAP_TIMERS[containerId]); delete HEATMAP_TIMERS[containerId]; return; }
+      const conJitter = data.map((d) => ({ x: d.x, y: d.y, value: Math.max(1, d.value * (0.7 + Math.random() * 0.6)) }));
+      heatmap.setData({ max, data: conJitter });
+    }, 220);
+  }
 }
 
 function renderZonesHeatmap(bundle = bundleDe()) {
@@ -1861,6 +2120,11 @@ let lastCountedVideoId = null;
 
 function render() {
   const root = document.getElementById('root');
+  // La clase vive en <html>, no en #root: #root se reconstruye entero en
+  // cada render() (ver comentario grande mas arriba), pero el CSS de modo
+  // oscuro esta escrito contra "html.dark ..." para que siga aplicando
+  // aunque #root cambie de contenido -incluida la pantalla de bienvenida-.
+  document.documentElement.classList.toggle('dark', state.darkMode);
 
   if (state.mostrandoInicio) {
     root.innerHTML = renderPantallaInicio();
@@ -1976,6 +2240,11 @@ document.addEventListener('click', async (e) => {
   else if (action === 'exportar-pdf') window.print();
   else if (action === 'exportar-csv') exportarCSV();
   else if (action === 'open-settings') setState({ isConfigModalOpen: true, configTest: null });
+  else if (action === 'toggle-dark-mode') {
+    const nuevo = !state.darkMode;
+    localStorage.setItem('gondola_dark_mode', String(nuevo));
+    setState({ darkMode: nuevo });
+  }
   else if (action === 'close-settings') setState({ isConfigModalOpen: false, configTest: null });
   else if (action === 'refresh-videos') loadVideos();
   else if (action === 'retry-detail') loadVideoDetail(state.selectedVideoId);
@@ -2015,6 +2284,10 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('change', (e) => {
   if (e.target.id === 'video-select') selectVideo(e.target.value);
   else if (e.target.dataset.compareSlot) loadCompareData(e.target.dataset.compareSlot, e.target.value);
+  else if (e.target.id === 'heatmap-style-select') {
+    localStorage.setItem('gondola_heatmap_style', e.target.value);
+    setState({ heatmapStyle: e.target.value });
+  }
 });
 
 render();
