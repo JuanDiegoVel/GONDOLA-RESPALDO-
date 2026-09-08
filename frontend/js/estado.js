@@ -2,6 +2,19 @@
 // Parte del dashboard de Gondola Inteligente. Se carga desde index.html
 // como <script> clasico (no modulo ES): ver el comentario de index.html.
 
+// Cada carga de pagina (recargar, reabrir la pestaña, escanear el QR otra
+// vez) arranca SIEMPRE en la portada -aunque el navegador recuerde
+// #/panel o #/comparar de una visita anterior-, para que nadie se salte
+// la explicacion inicial solo porque ya habia entrado antes. Corre ANTES
+// de construir `state` (justo abajo, mostrandoInicio lee rutaActual())
+// para que ni el primer render() vea el hash viejo: si esto viviera
+// dentro de arrancar() (que es async y corre despues del primer render(),
+// ver el final de app.js), se alcanzaria a pintar el panel un instante
+// antes de saltar a la portada.
+if (location.hash !== '#/inicio') {
+  history.replaceState(null, '', `${location.pathname}${location.search}#/inicio`);
+}
+
 // Todo el estado de la pantalla vive aqui, en un solo objeto plano.
 const state = {
   // Pantalla de bienvenida: lo primero que se ve al abrir el archivo,
@@ -11,8 +24,8 @@ const state = {
   // utils.js, y el listener de 'hashchange' en arrancar(), mas abajo) el
   // boton ATRAS del navegador navega entre esas tres pantallas en vez de
   // sacar de la pagina -bug real, reportado por un companero de equipo-.
-  // Si la pagina se abre ya con #/panel o #/comparar en la URL (recargada,
-  // o un enlace guardado), arranca directo ahi, sin portada.
+  // Pero SIEMPRE arranca en la portada (ver el bloque justo arriba): un
+  // #/panel guardado de una visita anterior ya no la salta.
   mostrandoInicio: rutaActual() === 'inicio',
   // Modo oscuro: se recuerda por navegador (localStorage). Si nunca se ha
   // tocado el interruptor, se sigue la preferencia del sistema operativo
@@ -288,11 +301,11 @@ async function eliminarVideoActual() {
 // con el interruptor de configuracion, esa decision manda y aqui no se
 // toca nada.
 async function arrancar() {
-  // La URL manda sobre el estado inicial: si alguien guarda o comparte
-  // .../index.html#/panel, abre en el panel y no en la portada -por eso
-  // `state.mostrandoInicio`/`mostrandoComparacion` ya se calculan arriba
-  // con rutaActual() al construir `state`, antes del primer render().
-  if (!location.hash) history.replaceState(null, '', `${location.pathname}${location.search}#/inicio`);
+  // El hash ya quedo forzado a #/inicio (si hacia falta) ANTES de esto,
+  // al construir `state` -ver el bloque al principio de este archivo-.
+  // Aqui solo falta enganchar 'hashchange' para que la navegacion DENTRO
+  // de esta visita (entrar al panel, comparar, el boton ATRAS) siga
+  // funcionando con normalidad.
   window.addEventListener('hashchange', sincronizarConRuta);
 
   await verifyHealth();
