@@ -220,21 +220,21 @@ function renderPositionsHeatmap(bundle = bundleDe()) {
   const aspect = current.width / current.height;
   return `
   <div class="rounded-xl border border-[#EAEAEA] p-5 shadow-xs" style="background:linear-gradient(165deg,#FFFFFF 0%,#EEF1F0 100%)">
-    <div class="flex items-center justify-between mb-1">
-      <div class="flex items-center gap-2.5">
+    <div class="flex flex-wrap items-center justify-between gap-y-2 mb-1">
+      <div class="flex items-center gap-2.5 min-w-0">
         <div class="w-7 h-7 rounded-lg bg-[#F3F2EF] text-[#787774] flex items-center justify-center shrink-0">${icon('compass', 'w-4 h-4')}</div>
-        <div>
+        <div class="min-w-0">
           <h3 class="text-sm font-bold text-[#111111] inline-flex items-center gap-1.5">Mapa de Calor Real (por coordenadas) ${infoButton('Mapa de Calor Real', 'Cada punto es el punto de apoyo (los pies) de una persona detectada en un frame -la posición (x, y) en píxeles del video original, nunca su rostro ni identidad-. El mapa dibuja la densidad de TODOS esos puntos, cuadro a cuadro; no es un estimado ni un promedio, son las coordenadas reales que el pipeline registró.')}</h3>
           <p class="text-[11px] text-[#787774]">Densidad de ${formatNumber(bundle.positions.length)} posiciones detectadas, en píxeles del frame original</p>
         </div>
       </div>
-      <div class="flex items-center gap-2.5 shrink-0">
+      <div class="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
         <select id="heatmap-style-select" class="text-[11px] font-medium text-[#57534E] bg-[#F7F6F3] border border-[#EAEAEA] rounded-md px-1.5 py-1 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 title="Estilo visual del mapa de calor">
           ${Object.entries(HEATMAP_ESTILOS).map(([key, e]) => `<option value="${key}" ${state.heatmapStyle === key ? 'selected' : ''}>${esc(e.label)}</option>`).join('')}
         </select>
-        <div class="flex items-center gap-1.5 text-[10px] text-[#787774]">
-          <span>Menos</span><div class="w-16 h-2 rounded" style="background:${(HEATMAP_ESTILOS[state.heatmapStyle] || HEATMAP_ESTILOS.contraste).legendCss}"></div><span>Más</span>
+        <div class="flex items-center gap-1.5 text-[10px] text-[#787774] shrink-0 whitespace-nowrap">
+          <span>Menos</span><div class="w-16 h-2 rounded shrink-0" style="background:${(HEATMAP_ESTILOS[state.heatmapStyle] || HEATMAP_ESTILOS.contraste).legendCss}"></div><span>Más</span>
         </div>
       </div>
     </div>
@@ -456,16 +456,16 @@ function renderZonesHeatmap(bundle = bundleDe()) {
   return `
   <div class="space-y-4">
     <div class="rounded-xl border border-[#EAEAEA] p-5 shadow-xs" style="background:linear-gradient(165deg,#FFFFFF 0%,#EEF1F0 100%)">
-      <div class="flex items-center justify-between mb-1">
-        <div class="flex items-center gap-2.5">
+      <div class="flex flex-wrap items-center justify-between gap-y-2 mb-1">
+        <div class="flex items-center gap-2.5 min-w-0">
           <div class="w-7 h-7 rounded-lg bg-[#F3F2EF] text-[#787774] flex items-center justify-center shrink-0">${icon('map', 'w-4 h-4')}</div>
-          <div>
+          <div class="min-w-0">
             <h3 class="text-sm font-bold text-[#111111] inline-flex items-center gap-1.5">Resumen por Zona ${infoButton('Resumen por Zona', 'El color de cada estante sale de comparar su people_count contra el estante MÁS visitado del mismo video -no contra un umbral fijo-, así que "rojo" en un video con poco tráfico no significa lo mismo que "rojo" en uno con mucho. Los números (personas, interacciones, permanencia) vienen de la tabla metrics ya calculada por el pipeline, agregada por góndola y por estante.')}</h3>
             <p class="text-[11px] text-[#787774]">Total agregado por góndola/estante — el mapa de calor por coordenadas está arriba</p>
           </div>
         </div>
-        <div class="flex items-center gap-1.5 text-[10px] text-[#787774]">
-          <span>Menos</span><div class="w-24 h-2 rounded" style="background:linear-gradient(90deg,#D6E8F5,#5D9BC9,#0B3B5C)"></div><span>Más</span>
+        <div class="flex items-center gap-1.5 text-[10px] text-[#787774] shrink-0 whitespace-nowrap">
+          <span>Menos</span><div class="w-24 h-2 rounded shrink-0" style="background:linear-gradient(90deg,#D6E8F5,#5D9BC9,#0B3B5C)"></div><span>Más</span>
         </div>
       </div>
       <div class="grid gap-3.5 grid-cols-1 md:grid-cols-2 mt-3">${gondolas.map(gondolaCard).join('')}</div>
