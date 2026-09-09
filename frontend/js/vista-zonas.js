@@ -31,7 +31,7 @@ function renderSummaryCards(bundle = bundleDe(), idPrefix = '') {
   <section aria-labelledby="kpi-summary-heading${idPrefix}" class="space-y-2">
     <div class="flex items-center justify-between px-1">
       <h2 id="kpi-summary-heading${idPrefix}" class="text-[10px] font-bold text-[#787774] uppercase tracking-[0.1em]">Resumen General del Video</h2>
-      <span class="text-[11px] text-[#787774]">Grabación: <code class="font-mono text-[#111111]">${esc(d.video_id)}</code></span>
+      <span class="text-[11px] text-[#787774]">Grabación: <code class="font-mono text-[#111111]">${esc(d.source_name || d.video_id)}</code></span>
     </div>
     <!-- En la vista de comparacion cada columna ocupa media pantalla: seis
          tarjetas ahi dejaban ~110px por tarjeta y los titulos se partian
