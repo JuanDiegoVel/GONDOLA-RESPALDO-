@@ -56,29 +56,71 @@
      abierta. El fondo de ahora no cuesta nada y no distrae.
      (js/particulas.js se elimino junto con el <canvas>.)
 
-     Las 14 "estrellas cayendo" de aqui abajo son la unica excepcion: motion
-     real, pedida a proposito por el equipo (primero 6 cada 25-38s, muy
-     poco notorio; se subio a 14 cada 7-14s por pedido explicito). Se
+     Las 50 "estrellas cayendo" de aqui abajo son la unica excepcion: motion
+     real, pedida a proposito por el equipo. Pasaron por tres rondas de
+     ajuste con feedback real: 6 cada 25-38s (casi invisible), 14 cada
+     7-14s (todavia poco y muy rapido), hasta esto -50 estrellas, ciclos
+     lentos de 16-28s, "que se sienta lluvia, no una carrera"-. Se
      mantienen en el MISMO espiritu que el resto del fondo -nada de
      <canvas> ni de JS por cuadro-: son elementos fijos, CSS puro
-     (transform+opacity), con ciclos cortos y desfasados para que se vea
-     una lluvia real -normalmente 2-4 a la vez- sin llegar a ser una
-     ventisca. Ver .estrella en estilos.css. -->
+     (transform+opacity, GPU). Con tantas, cada una necesita su propia
+     posicion/duracion/delay -por eso van en `style` inline en vez de 50
+     reglas nth-child en el CSS-, generadas una sola vez con una semilla
+     fija (ver el script en el historial de commits) para que el patron no
+     "salte" entre recargas. Viven en su propio z-index (0), DETRAS del
+     panel de datos (#root, z-index 1): por densas que se vean, nunca
+     tapan ni una cifra. Ver .estrella en estilos.css. -->
 <div class="estrellas no-imprimir" aria-hidden="true">
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
-  <span class="estrella"></span>
+  <span class="estrella" style="left:18.8%;--deriva:16px;animation-duration:17.3s;animation-delay:27.4s"></span>
+  <span class="estrella" style="left:10.3%;--deriva:5px;animation-duration:16.6s;animation-delay:25.2s"></span>
+  <span class="estrella" style="left:29.6%;--deriva:-14px;animation-duration:21.7s;animation-delay:24.1s"></span>
+  <span class="estrella" style="left:43.9%;--deriva:16px;animation-duration:25.0s;animation-delay:11.2s"></span>
+  <span class="estrella" style="left:73.4%;--deriva:-3px;animation-duration:18.8s;animation-delay:21.8s"></span>
+  <span class="estrella" style="left:82.0%;--deriva:0px;animation-duration:17.2s;animation-delay:26.8s"></span>
+  <span class="estrella" style="left:4.1%;--deriva:13px;animation-duration:25.2s;animation-delay:9.3s"></span>
+  <span class="estrella" style="left:2.7%;--deriva:-2px;animation-duration:18.9s;animation-delay:20.9s"></span>
+  <span class="estrella" style="left:22.5%;--deriva:-7px;animation-duration:16.3s;animation-delay:8.9s"></span>
+  <span class="estrella" style="left:56.4%;--deriva:4px;animation-duration:20.6s;animation-delay:25.9s"></span>
+  <span class="estrella" style="left:81.2%;--deriva:-3px;animation-duration:17.0s;animation-delay:9.5s"></span>
+  <span class="estrella" style="left:28.4%;--deriva:13px;animation-duration:17.1s;animation-delay:25.6s"></span>
+  <span class="estrella" style="left:23.1%;--deriva:-17px;animation-duration:26.0s;animation-delay:2.6s"></span>
+  <span class="estrella" style="left:50.6%;--deriva:17px;animation-duration:22.9s;animation-delay:3.2s"></span>
+  <span class="estrella" style="left:4.1%;--deriva:-14px;animation-duration:21.0s;animation-delay:26.8s"></span>
+  <span class="estrella" style="left:22.2%;--deriva:-17px;animation-duration:26.7s;animation-delay:10.0s"></span>
+  <span class="estrella" style="left:34.5%;--deriva:-20px;animation-duration:21.5s;animation-delay:19.4s"></span>
+  <span class="estrella" style="left:99.8%;--deriva:17px;animation-duration:19.7s;animation-delay:12.7s"></span>
+  <span class="estrella" style="left:49.3%;--deriva:-4px;animation-duration:20.0s;animation-delay:17.5s"></span>
+  <span class="estrella" style="left:67.6%;--deriva:18px;animation-duration:18.8s;animation-delay:14.7s"></span>
+  <span class="estrella" style="left:53.3%;--deriva:5px;animation-duration:23.5s;animation-delay:18.1s"></span>
+  <span class="estrella" style="left:89.3%;--deriva:14px;animation-duration:18.4s;animation-delay:14.6s"></span>
+  <span class="estrella" style="left:35.6%;--deriva:6px;animation-duration:18.5s;animation-delay:18.9s"></span>
+  <span class="estrella" style="left:22.8%;--deriva:7px;animation-duration:27.2s;animation-delay:14.2s"></span>
+  <span class="estrella" style="left:93.8%;--deriva:9px;animation-duration:16.6s;animation-delay:22.1s"></span>
+  <span class="estrella" style="left:95.9%;--deriva:14px;animation-duration:22.1s;animation-delay:17.6s"></span>
+  <span class="estrella" style="left:44.9%;--deriva:-10px;animation-duration:20.7s;animation-delay:8.5s"></span>
+  <span class="estrella" style="left:16.9%;--deriva:17px;animation-duration:18.5s;animation-delay:16.8s"></span>
+  <span class="estrella" style="left:18.0%;--deriva:-16px;animation-duration:18.8s;animation-delay:13.3s"></span>
+  <span class="estrella" style="left:89.2%;--deriva:1px;animation-duration:20.7s;animation-delay:11.0s"></span>
+  <span class="estrella" style="left:24.8%;--deriva:9px;animation-duration:16.0s;animation-delay:26.6s"></span>
+  <span class="estrella" style="left:63.5%;--deriva:-8px;animation-duration:23.1s;animation-delay:12.7s"></span>
+  <span class="estrella" style="left:63.9%;--deriva:14px;animation-duration:18.7s;animation-delay:4.0s"></span>
+  <span class="estrella" style="left:73.3%;--deriva:-8px;animation-duration:18.4s;animation-delay:4.8s"></span>
+  <span class="estrella" style="left:16.8%;--deriva:-14px;animation-duration:24.7s;animation-delay:4.2s"></span>
+  <span class="estrella" style="left:38.9%;--deriva:-12px;animation-duration:27.7s;animation-delay:13.1s"></span>
+  <span class="estrella" style="left:19.1%;--deriva:18px;animation-duration:25.8s;animation-delay:18.3s"></span>
+  <span class="estrella" style="left:45.5%;--deriva:-12px;animation-duration:22.7s;animation-delay:27.1s"></span>
+  <span class="estrella" style="left:60.6%;--deriva:9px;animation-duration:21.1s;animation-delay:27.1s"></span>
+  <span class="estrella" style="left:76.6%;--deriva:-4px;animation-duration:22.1s;animation-delay:4.0s"></span>
+  <span class="estrella" style="left:66.6%;--deriva:2px;animation-duration:24.0s;animation-delay:27.6s"></span>
+  <span class="estrella" style="left:54.4%;--deriva:-19px;animation-duration:20.8s;animation-delay:10.5s"></span>
+  <span class="estrella" style="left:42.4%;--deriva:-10px;animation-duration:18.9s;animation-delay:25.9s"></span>
+  <span class="estrella" style="left:63.1%;--deriva:-1px;animation-duration:19.2s;animation-delay:8.2s"></span>
+  <span class="estrella" style="left:13.1%;--deriva:15px;animation-duration:23.6s;animation-delay:22.1s"></span>
+  <span class="estrella" style="left:76.7%;--deriva:-14px;animation-duration:20.0s;animation-delay:7.4s"></span>
+  <span class="estrella" style="left:73.3%;--deriva:18px;animation-duration:17.1s;animation-delay:11.6s"></span>
+  <span class="estrella" style="left:6.3%;--deriva:-15px;animation-duration:23.8s;animation-delay:14.4s"></span>
+  <span class="estrella" style="left:75.8%;--deriva:-12px;animation-duration:23.3s;animation-delay:20.8s"></span>
+  <span class="estrella" style="left:39.8%;--deriva:-17px;animation-duration:26.8s;animation-delay:16.6s"></span>
 </div>
 <div id="root" class="min-h-screen flex flex-col relative" style="z-index:1"></div>
 
