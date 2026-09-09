@@ -71,3 +71,10 @@ data/output/*
 *.tmp
 *.bak
 tmp/
+
+# --- Skills de Claude Code (herramienta personal, no parte del proyecto) --
+# Instalados con `npx skills add ...`; cada quien los tiene o no en su
+# maquina, no son codigo de Gondola Inteligente.
+.agents/
+.claude/
+skills-lock.json

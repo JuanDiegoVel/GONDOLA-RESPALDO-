@@ -187,7 +187,7 @@ function renderZonesSection(bundle = bundleDe(), idPrefix = '') {
         </div>
       </div>`;
     }).join('');
-    body = `<div class="grid gap-3.5 ${isSingleZone ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}">${cards}</div>`;
+    body = `<div class="stagger-in grid gap-3.5 ${isSingleZone ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}">${cards}</div>`;
   }
 
   return `<section aria-labelledby="zones-heading" class="space-y-3">${header}${body}</section>`;
@@ -482,7 +482,7 @@ function renderZonesHeatmap(bundle = bundleDe()) {
           <span>Menos</span><div class="w-24 h-2 rounded shrink-0" style="background:linear-gradient(90deg,#D6E8F5,#5D9BC9,#0B3B5C)"></div><span>Más</span>
         </div>
       </div>
-      <div class="grid gap-3.5 mt-3 ${gondolas.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}">${gondolas.map(gondolaCard).join('')}</div>
+      <div class="stagger-in grid gap-3.5 mt-3 ${gondolas.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}">${gondolas.map(gondolaCard).join('')}</div>
     </div>
     ${renderRanking()}
   </div>`;
@@ -589,7 +589,7 @@ function renderInsights(bundle = bundleDe()) {
         ${icon('trending-up', 'w-3.5 h-3.5 text-[#1F6C9F]')}<span>Telemetría de video anónima</span>
       </div>
     </div>
-    <div class="grid grid-cols-1 gap-3">${cards}</div>
+    <div class="stagger-in grid grid-cols-1 gap-3">${cards}</div>
   </div>`;
 }
 
