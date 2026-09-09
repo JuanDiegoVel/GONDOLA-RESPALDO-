@@ -121,7 +121,7 @@ function renderZonesSection(bundle = bundleDe(), idPrefix = '') {
                </div>`
             : `<span class="text-[11px] italic text-[#A8A29E]">sin datos</span>`}
         </td>
-        <td class="px-4 py-3.5 text-center font-mono text-xs">
+        <td class="px-4 py-3.5 text-center font-mono text-xs whitespace-nowrap">
           <span class="font-semibold text-[#2B5230]">${formatNumber(z.pick_up_count)}</span>
           <span class="text-[#D6D3D1] mx-1">/</span>
           <span class="font-semibold text-[#7F2523]">${formatNumber(z.put_back_count)}</span>
@@ -134,16 +134,16 @@ function renderZonesSection(bundle = bundleDe(), idPrefix = '') {
     body = `
     <div class="bg-white rounded-xl border border-[#EAEAEA] overflow-hidden shadow-xs">
       <div class="overflow-x-auto">
-        <table class="w-full text-left">
+        <table class="text-left" style="width:100%;min-width:680px">
           <thead class="text-[10px] uppercase text-[#787774] tracking-wider border-b border-[#F3F2EF] bg-[#F9F9F8]">
             <tr>
-              <th class="px-5 py-3 font-semibold">Zona / Estantería</th>
-              <th class="px-4 py-3 font-semibold">Categoría</th>
-              <th class="px-4 py-3 font-semibold text-center">Personas</th>
-              <th class="px-4 py-3 font-semibold text-center">Interacción %</th>
-              <th class="px-4 py-3 font-semibold text-center">Tomas / Devol.</th>
-              <th class="px-4 py-3 font-semibold text-center">Permanencia</th>
-              <th class="px-5 py-3 font-semibold text-right">Conversión %</th>
+              <th class="px-5 py-3 font-semibold whitespace-nowrap">Zona / Estantería</th>
+              <th class="px-4 py-3 font-semibold whitespace-nowrap">Categoría</th>
+              <th class="px-4 py-3 font-semibold text-center whitespace-nowrap">Personas</th>
+              <th class="px-4 py-3 font-semibold text-center whitespace-nowrap">Interacción %</th>
+              <th class="px-4 py-3 font-semibold text-center whitespace-nowrap">Tomas / Devol.</th>
+              <th class="px-4 py-3 font-semibold text-center whitespace-nowrap">Permanencia</th>
+              <th class="px-5 py-3 font-semibold text-right whitespace-nowrap">Conversión %</th>
             </tr>
           </thead>
           <tbody class="text-sm text-[#44403C] divide-y divide-[#F3F2EF]">${rows}</tbody>
