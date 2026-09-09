@@ -41,6 +41,12 @@ function crearReproductorPersistente(portalId) {
     // escondiera, el video seguiria corriendo (y sonando) invisible.
     if (!placeholder) { portal.hidden = true; video.pause(); return null; }
     const rect = placeholder.getBoundingClientRect();
+    // El hueco puede EXISTIR y aun asi no verse: desde que el panel se
+    // divide en secciones, las que no estan activas se ocultan con
+    // `display:none` y su rectangulo mide 0x0. Sin esto el portal se
+    // colocaba en la esquina superior izquierda con tamano cero -invisible,
+    // pero con el video descargando y sonando.
+    if (!rect.width || !rect.height) { portal.hidden = true; video.pause(); return null; }
     portal.style.top = `${window.scrollY + rect.top}px`;
     portal.style.left = `${window.scrollX + rect.left}px`;
     portal.style.width = `${rect.width}px`;

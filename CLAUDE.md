@@ -29,7 +29,7 @@ entorno (Node/npm) para las 8 personas.
 
 "Sin build" no quiere decir "un solo archivo": `frontend/index.html` es
 solo la cascara (los `<link>`/`<script>` que carga), y el CSS/JS de verdad
-vive repartido en `frontend/css/estilos.css` y 14 archivos bajo
+vive repartido en `frontend/css/estilos.css` y 13 archivos bajo
 `frontend/js/` (uno por responsabilidad: estado, cada vista, subir un
 video, etc.), cargados con `<script src="...">` **clasicos** -no modulos
 ES, que el navegador bloquea al abrir un archivo con `file://...`-. Siguen

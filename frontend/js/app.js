@@ -32,6 +32,12 @@ function render() {
     state.errorDetail ? errorAlert({ title: `Error al consultar video ${esc(state.selectedVideoId)} (/videos/${esc(state.selectedVideoId)})`, detail: state.errorDetail, retryAction: 'retry-detail', isRetrying: state.isLoadingDetail }) : '',
   ].join('');
 
+  // Entrada escalonada, SOLO la primera vez que llegan datos en la sesion
+  // (hasAnimatedIn se queda en true despues). Cambiar de video no la
+  // repite: ahi el movimiento que comunica algo es el conteo de las cifras
+  // y el crecimiento de las barras (ver fillCountUps() y .kpi-bar). Los
+  // escalones son cortos -el ultimo no llega a 200ms- para que se sienta
+  // que la pantalla se arma, no que hay que esperarla.
   const firstPaint = !hasAnimatedIn && !!state.videoDetail;
 
   // Sin video elegido -a proposito no se auto-elige ninguno, ver
@@ -39,47 +45,58 @@ function render() {
   // calor/etc. todas vacias: se corta ahi con un solo mensaje central.
   const sinVideoElegido = !state.selectedVideoId && !state.isLoadingVideos;
 
+  // El panel se reparte en secciones (ver SECCIONES_PANEL y seccionPanel(),
+  // en vista-panel.js) en vez de apilarlo todo en un solo scroll. Se pintan
+  // TODAS y se oculta la que no esta activa: asi el reporte en PDF sigue
+  // saliendo completo y el hueco del reproductor de video sigue existiendo
+  // para que su portal pueda medirlo. Ver .panel-seccion en estilos.css.
+  const secciones = `
+      ${seccionPanel('resumen', `
+        ${renderSummaryCards()}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start mt-4">
+          <div class="lg:col-span-7">${renderInsights()}</div>
+          <div class="lg:col-span-5 space-y-4">${renderSidebar()}</div>
+        </div>`)}
+      ${seccionPanel('zonas', `
+        <div class="space-y-4">
+          ${renderZonesSection()}
+          ${renderZonesHeatmap()}
+        </div>`)}
+      ${seccionPanel('mapa', renderPositionsHeatmap())}
+      ${seccionPanel('video', renderVideoPlayer() || `
+        <div class="bg-white rounded-xl border border-dashed border-[#D6D3D1] py-16 text-center">
+          ${icon('video-camera', 'w-8 h-8 text-[#A8A29E] mx-auto mb-3')}
+          <h3 class="text-sm font-semibold text-[#2F3437]">Este video no tiene render anonimizado</h3>
+          <p class="text-xs text-[#787774] mt-1 max-w-md mx-auto">Los videos de prueba no tienen ninguna grabación detrás. En un video real aparece aquí el render en modo privacidad, sin un solo píxel del original.</p>
+        </div>`)}
+      ${seccionPanel('reportes', renderFeedback() || `
+        <div class="bg-white rounded-xl border border-dashed border-[#D6D3D1] py-16 text-center">
+          ${icon('check-circle-2', 'w-8 h-8 text-[#346538] mx-auto mb-3')}
+          <h3 class="text-sm font-semibold text-[#2F3437]">Sin advertencias para este video</h3>
+          <p class="text-xs text-[#787774] mt-1 max-w-md mx-auto">Aquí aparecen los avisos sobre cómo leer los números — un video demasiado corto, cero tomas detectadas, un porcentaje sin denominador. Este video no dispara ninguno.</p>
+        </div>`)}`;
+
   const mainContent = state.mostrandoComparacion
     ? renderComparisonView()
     : `
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 space-y-4 ${firstPaint ? 'stagger-in' : ''}">
-      ${renderVideoSelector()}
-      ${errorBlocks}
-      ${sinVideoElegido ? `
-      <div class="bg-white rounded-xl border border-dashed border-[#D6D3D1] py-16 text-center">
-        ${icon('layers', 'w-8 h-8 text-[#A8A29E] mx-auto mb-3')}
-        <h3 class="text-sm font-semibold text-[#2F3437]">Elige un video arriba para ver su análisis</h3>
-        <p class="text-xs text-[#787774] mt-1">El panel no elige uno por ti — selecciona uno del desplegable "Video".</p>
-      </div>` : `
-      ${renderVideoPlayer()}
-      ${renderSummaryCards()}
-      <!-- Columna izquierda (8/12): tabla y mapa de calor, los datos "crudos".
-           Columna derecha (4/12): tarjeta de rechazo + privacidad + el
-           diagnostico automatico (renderInsights), que se movio aqui a
-           proposito para dejar la izquierda solo con datos, sin texto. -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        <div class="lg:col-span-8 space-y-4">
-          ${renderZonesSection()}
-          ${renderPositionsHeatmap()}
-          ${renderZonesHeatmap()}
-          ${renderFeedback()}
-        </div>
-        <div class="lg:col-span-4 space-y-4">
-          ${renderSidebar()}
-          ${renderInsights()}
-        </div>
-      </div>`}
-    </main>`;
+    <div class="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 py-5 flex flex-col lg:flex-row gap-4 lg:gap-5 items-start">
+      ${sinVideoElegido ? '' : renderNavSecciones()}
+      <main class="flex-1 min-w-0 w-full space-y-4 ${firstPaint ? 'stagger-in' : ''}">
+        ${renderVideoSelector()}
+        ${errorBlocks}
+        ${sinVideoElegido ? `
+        <div class="bg-white rounded-xl border border-dashed border-[#D6D3D1] py-16 text-center">
+          ${icon('layers', 'w-8 h-8 text-[#A8A29E] mx-auto mb-3')}
+          <h3 class="text-sm font-semibold text-[#2F3437]">Elige un video arriba para ver su análisis</h3>
+          <p class="text-xs text-[#787774] mt-1">El panel no elige uno por ti — selecciona uno del desplegable "Video".</p>
+        </div>` : secciones}
+      </main>
+    </div>`;
 
   root.innerHTML = `
     <div class="no-imprimir">${renderHeader()}</div>
     <div class="no-imprimir">${renderConnectionBanner()}</div>
     ${mainContent}
-    <footer class="no-imprimir bg-white border-t border-[#EAEAEA] py-3.5 mt-auto">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-xs text-[#787774]">
-        <p>Góndola Inteligente · Consola de analítica de video para space management y planogramas.</p>
-      </div>
-    </footer>
     ${renderConfigModal()}
     ${renderSubidaModal()}
     ${renderInfoModal()}
@@ -98,14 +115,68 @@ function render() {
   // haya pintado con los estilos puestos antes de medir nada.
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (state.mostrandoComparacion) {
-      pintarHeatmap('positions-heatmap-canvas-a', state.compareAPositions);
-      pintarHeatmap('positions-heatmap-canvas-b', state.compareBPositions);
+      pintarMapaAunqueOculto('positions-heatmap-canvas-a', state.compareAPositions);
+      pintarMapaAunqueOculto('positions-heatmap-canvas-b', state.compareBPositions);
     } else {
-      pintarHeatmap('positions-heatmap-canvas', state.positions);
+      pintarMapaAunqueOculto('positions-heatmap-canvas', state.positions);
     }
     initVideoPlayer();
     initLienzoZonas();
   }));
+}
+
+// El mapa de calor lo pinta heatmap.js sobre un <canvas>, y pintarHeatmap()
+// se planta si el contenedor mide 0 de ancho (guarda necesaria: sin tamano
+// no hay escala a la que reescalar las coordenadas). Con el panel repartido
+// en secciones, la del mapa esta oculta casi siempre -> el lienzo se quedaba
+// VACIO, y por eso el mapa no salia en el PDF.
+//
+// Aqui se le devuelve el tamano el instante justo: se descubre la seccion,
+// se pinta y se vuelve a ocultar, todo seguido dentro del mismo cuadro de
+// animacion. El navegador no llega a pintar el estado intermedio, asi que
+// no hay parpadeo, y el lienzo queda listo para cuando alguien imprima.
+//
+// No se usa el evento 'beforeprint' -que seria lo natural- porque no todos
+// los caminos de impresion lo disparan (Chrome en modo headless con
+// --print-to-pdf no lo hace), y el reporte tiene que salir completo siempre.
+// Exportar el reporte a PDF.
+//
+// No basta con `window.print()`. El panel esta repartido en secciones y las
+// inactivas van con `display:none`; el mapa de calor, que es un <canvas>
+// pintado por heatmap.js, no llegaba al PDF -comprobado: con la seccion del
+// mapa activa el PDF trae el lienzo, y con otra activa no-. Confiar en que
+// una regla @media print lo destape no alcanza: en la impresion la seccion
+// aparece, pero el lienzo no viaja con ella.
+//
+// Aqui se destapan TODAS las secciones de verdad, en pantalla, se repinta
+// cada mapa ya con su tamano real, y recien entonces se imprime.
+// `window.print()` bloquea hasta que se cierra el dialogo, asi que al
+// volver se deshace el destape y se vuelve a pintar como estaba.
+function exportarReportePDF() {
+  document.body.classList.add('destapar-secciones');
+  void document.body.offsetHeight;   // fuerza el recalculo antes de medir
+  if (state.mostrandoComparacion) {
+    pintarHeatmap('positions-heatmap-canvas-a', state.compareAPositions);
+    pintarHeatmap('positions-heatmap-canvas-b', state.compareBPositions);
+  } else {
+    pintarHeatmap('positions-heatmap-canvas', state.positions);
+  }
+  try {
+    window.print();
+  } finally {
+    document.body.classList.remove('destapar-secciones');
+    render();
+  }
+}
+
+function pintarMapaAunqueOculto(containerId, positions) {
+  const cont = document.getElementById(containerId);
+  if (!cont) return;
+  const seccion = cont.closest('.panel-seccion');
+  const oculta = seccion && !seccion.classList.contains('activa');
+  if (oculta) seccion.style.display = 'block';
+  pintarHeatmap(containerId, positions);
+  if (oculta) seccion.style.display = '';
 }
 
 function fillCountUps() {
@@ -137,7 +208,7 @@ document.addEventListener('click', async (e) => {
 
   if (action === 'entrar-panel') irA('panel');
   else if (action === 'volver-inicio') irA('inicio');
-  else if (action === 'exportar-pdf') window.print();
+  else if (action === 'exportar-pdf') exportarReportePDF();
   else if (action === 'exportar-csv') exportarCSV();
   else if (action === 'open-settings') setState({ isConfigModalOpen: true, configTest: null, configUrlDraft: null });
   else if (action === 'toggle-dark-mode') {
@@ -164,6 +235,13 @@ document.addEventListener('click', async (e) => {
   else if (action === 'retry-health') verifyHealth();
   else if (action === 'enable-mock') toggleMockMode(true);
   else if (action === 'toggle-mock-in-modal') toggleMockMode(!state.useMockMode);
+  else if (action === 'ir-seccion') {
+    const seccion = el.dataset.seccion;
+    // Se recuerda por navegador: quien vive en el mapa de calor lo vuelve a
+    // encontrar abierto la proxima vez, sin pasar por el resumen.
+    localStorage.setItem('gondola_panel_seccion', seccion);
+    setState({ panelSeccion: seccion });
+  }
   else if (action === 'zones-view-table') setState({ zonesViewMode: 'table' });
   else if (action === 'zones-view-cards') setState({ zonesViewMode: 'cards' });
   else if (action === 'abrir-comparacion') {
@@ -246,4 +324,3 @@ document.addEventListener('change', (e) => {
 
 render();
 arrancar();
-initPageParticles();

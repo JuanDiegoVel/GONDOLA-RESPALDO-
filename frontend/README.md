@@ -30,7 +30,7 @@ de esconderlo:
 - **Varios archivos, cero build.** `index.html` es solo la cáscara: los
   `<link>`/`<script>` que carga y los tres `<div>`/`<canvas>` que viven
   fuera de `#root` (ver el comentario del propio archivo). Todo el CSS
-  vive en `css/estilos.css`, y el JavaScript se reparte en 14 archivos
+  vive en `css/estilos.css`, y el JavaScript se reparte en 13 archivos
   bajo `js/` (uno por responsabilidad: estado, cada vista, la subida de
   video, etc. — ver la tabla más abajo). Son `<script src="...">`
   **clásicos**, no módulos ES (`type="module"`): el navegador bloquea los
@@ -70,7 +70,6 @@ Orden de carga real en `index.html` (de arriba hacia abajo):
 | `js/vista-zonas.js` | Tarjetas de resumen, análisis por zona y el mapa de calor real. |
 | `js/subida.js` | Las seis pantallas del modal "Subir video". |
 | `js/vista-modales.js` | El modal de configuración y la portada de bienvenida. |
-| `js/particulas.js` | El fondo animado de partículas. |
 | `js/app.js` | `render()` (arma la pantalla completa desde `state`), los `addEventListener` de clic/input/cambio, y las tres líneas finales que arrancan todo. |
 
 `css/estilos.css` trae todo el CSS (incluido el modo oscuro), `assets/logo.png`

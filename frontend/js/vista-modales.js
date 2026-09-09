@@ -2,50 +2,6 @@
 // Parte del dashboard de Gondola Inteligente. Se carga desde index.html
 // como <script> clasico (no modulo ES): ver el comentario de index.html.
 
-// Boceto de linea (sin fotos, sin colores llamativos) para la portada:
-// pedido explicito de que alguien SIN contexto del proyecto pueda entender
-// de un vistazo que hace el sistema -"ve" una posicion, no un rostro- sin
-// necesidad de mostrar un video real (el render anonimizado de verdad, con
-// cajas sobre fondo gris, solo aparece DENTRO del panel, con un video
-// elegido). La persona es una silueta a proposito SIN rasgos (ni ojos, ni
-// boca): la cara nunca se dibuja, ni siquiera en un boceto. El punto y el
-// recuadro punteado en azul son el UNICO dato real que el sistema guarda
-// de alguien: su posicion (los pies) en un instante, no su identidad.
-// Los colores usan `currentColor` sobre clases `text-[...]` que YA tienen
-// su version de modo oscuro en css/estilos.css (mismo mecanismo que el
-// resto del dashboard) en vez de colores fijos, para no verse lavado en
-// modo oscuro.
-const ILUSTRACION_CONCEPTO_SVG = `
-<svg viewBox="0 0 360 170" class="w-full h-auto max-w-[300px] mx-auto" role="img" aria-label="Boceto: una gondola con estantes y una persona junto a ella, dibujada sin rostro, con un punto marcando solo su posicion en el piso">
-  <line x1="10" y1="155" x2="345" y2="155" class="text-[#D6D3D1]" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-  <g class="text-[#57534E]" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linejoin="round">
-    <rect x="30" y="25" width="120" height="125" rx="4"/>
-    <line x1="30" y1="67" x2="150" y2="67"/>
-    <line x1="30" y1="108" x2="150" y2="108"/>
-  </g>
-  <g class="text-[#D6D3D1]" fill="currentColor">
-    <rect x="40" y="36" width="16" height="16" rx="2"/>
-    <rect x="64" y="36" width="16" height="16" rx="2"/>
-    <rect x="88" y="36" width="16" height="16" rx="2"/>
-    <rect x="40" y="78" width="16" height="16" rx="2"/>
-    <rect x="64" y="78" width="16" height="16" rx="2"/>
-    <rect x="40" y="119" width="16" height="16" rx="2"/>
-    <rect x="88" y="119" width="16" height="16" rx="2"/>
-  </g>
-  <g class="text-[#57534E]" fill="currentColor">
-    <circle cx="225" cy="58" r="13"/>
-    <rect x="205" y="72" width="40" height="48" rx="18"/>
-    <rect x="210" y="115" width="10" height="38" rx="5"/>
-    <rect x="232" y="115" width="10" height="38" rx="5"/>
-  </g>
-  <g class="text-[#1F6C9F]">
-    <rect x="198" y="146" width="54" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
-    <circle cx="225" cy="154" r="4" fill="currentColor"/>
-    <line x1="252" y1="154" x2="266" y2="154" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/>
-    <text x="269" y="158" font-size="11" font-weight="600" fill="currentColor">posición (x, y)</text>
-  </g>
-</svg>`;
-
 function renderConfigModal() {
   if (!state.isConfigModalOpen) return '';
   const testResultHtml = !state.configTest ? '' : `
@@ -136,48 +92,98 @@ function renderInfoModal() {
 // esta hecha -"muy por encimita", nada tecnico a fondo- y el logo en el
 // centro. Vive fuera del <main> normal a proposito: es su propia pantalla
 // completa, sin la barra de navegacion ni el resto del dashboard detras.
+// Portada. Es el unico momento "de convencer" de todo el producto -lo
+// primero que ve un jurado-, asi que no sigue las reglas del panel: aqui
+// la composicion manda sobre la densidad.
+//
+// Antes era una pila vertical de tarjetas del mismo tamano (ilustracion,
+// lista, nota) sobre fondo. Ahora es una sola composicion a dos columnas
+// en escritorio: el argumento y la accion a la izquierda, el diagrama -que
+// ES la idea del producto: nunca un rostro, solo un punto en el piso- con
+// el peso visual que merece a la derecha. En movil vuelve a una columna.
+// Portada. Es el unico momento "de convencer" de todo el producto -lo
+// primero que ve un jurado-, asi que no sigue las reglas del panel: aqui
+// manda la composicion sobre la densidad, y va SIEMPRE oscura, sin seguir
+// el interruptor de tema (ver la seccion 7 de css/estilos.css).
+//
+// La fotografia (assets/hero-gondola.jpg) es un recorte del mockup del
+// equipo: solo la escena, sin el texto que traia quemado encima. Todo lo
+// que se lee aqui es HTML de verdad -nitido a cualquier zoom,
+// seleccionable, traducible y accesible-, no pixeles de una imagen.
 function renderPantallaInicio() {
+  // Las cuatro capacidades REALES del sistema. El mockup mostraba seis
+  // tarjetas, pero dos repetian el texto de otras dos (un defecto de la
+  // imagen generada): inventar dos capacidades para rellenar la rejilla
+  // seria afirmar algo que el sistema no hace.
+  const capacidades = [
+    ['trend-up',    'Contar tráfico y medir cuánto tiempo se detiene la gente frente a un estante.'],
+    ['sparkle',     'Detectar cuándo alguien toma o devuelve un producto, y calcular la tasa de rechazo.'],
+    ['map',         'Un mapa de calor real, por coordenadas, de dónde circula la gente.'],
+    ['layout-grid', 'Comparar dos videos lado a lado con su análisis completo.'],
+  ];
+
   return `
-  <div class="min-h-screen flex items-center justify-center px-4 py-10">
-    <div class="max-w-xl w-full text-center space-y-6">
-      <img src="${LOGO_SPLASH}" alt="Góndola Inteligente" class="mx-auto w-52 sm:w-64 h-auto drop-shadow-sm" />
+  <div class="portada">
+    <div class="portada-foto" aria-hidden="true">
+      <img src="assets/hero-gondola.jpg" alt="" />
+    </div>
 
-      <div class="space-y-2">
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-[#111111]">CodeBolts</h1>
-        <p class="text-[11px] font-medium text-[#787774] uppercase tracking-[0.1em]">Góndola Inteligente</p>
-        <p class="text-sm text-[#57534E] leading-relaxed">
-          Analiza video de cámaras de tienda para entender cómo se mueven los clientes
-          frente a una góndola: cuántos pasan, dónde se detienen y qué productos tocan,
-          sin identificar a ninguna persona.
-        </p>
+    <!-- Angulos del marco: decorativos, por eso no los anuncia el lector
+         de pantalla. -->
+    <div class="portada-marco" aria-hidden="true">
+      <span class="es-si"></span><span class="es-sd"></span>
+      <span class="es-ii"></span><span class="es-id"></span>
+    </div>
+
+    <div class="portada-contenido min-h-screen flex flex-col justify-between px-6 sm:px-10 lg:px-16 py-10 lg:py-14">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center content-start lg:content-center flex-1">
+
+        <div class="lg:col-span-6 xl:col-span-5">
+          <h1 class="portada-titulo portada-entra font-bold text-[clamp(2.75rem,7.5vw,5.25rem)]">
+            Góndola<br />Inteligente
+          </h1>
+
+          <div class="portada-entra-2 mt-7 flex items-start gap-3 max-w-[46ch]">
+            <span class="shrink-0 mt-1 w-8 h-8 rounded-lg grid place-items-center"
+                  style="border:1px solid rgb(255 255 255 / .16); color:#67E8F9" aria-hidden="true">
+              ${icon('video-camera', 'w-4 h-4')}
+            </span>
+            <p class="text-[15px] sm:text-base leading-relaxed" style="color:#C6C2D6; text-wrap:pretty">
+              Analiza video de cámaras de tienda para entender cómo se mueven los clientes
+              frente a una góndola: cuántos pasan, dónde se detienen y qué productos tocan,
+              <strong class="font-semibold" style="color:#F3F1FA">sin identificar a ninguna persona</strong>.
+            </p>
+          </div>
+
+          <div class="portada-entra-3 mt-9 flex flex-wrap items-center gap-3">
+            <button type="button" data-action="entrar-panel"
+                    class="portada-cta inline-flex items-center justify-center gap-2 h-12 px-7 rounded-full text-sm font-bold">
+              Entrar al panel ${icon('arrow-right', 'w-4 h-4')}
+            </button>
+            <span class="portada-pill inline-flex items-center gap-2 h-12 px-5 rounded-full text-sm font-semibold"
+                  title="El sistema no realiza reconocimiento facial ni almacena datos personales.">
+              ${icon('shield-check', 'w-4 h-4')} 100% anónimo
+            </span>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6 xl:col-span-7 lg:pl-6 lg:self-end">
+          <ul class="portada-entra-3 grid grid-cols-1 sm:grid-cols-2 gap-3 list-none p-0 m-0">
+            ${capacidades.map(([ico, texto]) => `
+            <li class="portada-tarjeta flex items-start gap-3 p-4">
+              <span class="shrink-0 mt-0.5" style="color:#67E8F9" aria-hidden="true">${icon(ico, 'w-4 h-4')}</span>
+              <span class="text-[13px] leading-snug" style="color:#D8D5E6">${texto}</span>
+            </li>`).join('')}
+          </ul>
+        </div>
+
       </div>
 
-      <div class="bg-white rounded-xl border border-[#EAEAEA] p-5 shadow-xs">
-        ${ILUSTRACION_CONCEPTO_SVG}
-        <p class="text-xs text-[#787774] text-center mt-2 leading-relaxed">
-          Así "vemos" a un cliente: nunca su rostro ni su identidad, solo un punto que marca dónde están sus pies frente al estante, cuadro a cuadro.
-        </p>
+      <div class="portada-entra-3 pt-8 flex items-center gap-3 flex-wrap"
+           style="border-top:1px solid rgb(255 255 255 / .08)">
+        <span class="portada-firma text-[13px]">CodeBolts</span>
+        <span class="text-[11px]" style="color:#7E7996">HackTech 5.0 · 2026</span>
       </div>
-
-      <div class="bg-white rounded-xl border border-[#EAEAEA] p-5 text-left shadow-xs space-y-3">
-        <h2 class="text-[10px] font-bold text-[#787774] uppercase tracking-[0.1em]">Qué puede hacer</h2>
-        <ul class="space-y-2 text-sm text-[#2F3437]">
-          <li class="flex items-start gap-2">${icon('trend-up', 'w-4 h-4 text-[#1F6C9F] shrink-0 mt-0.5')}<span>Contar tráfico y medir cuánto tiempo se detiene la gente frente a un estante.</span></li>
-          <li class="flex items-start gap-2">${icon('sparkle', 'w-4 h-4 text-[#1F6C9F] shrink-0 mt-0.5')}<span>Detectar cuándo alguien toma o devuelve un producto, y calcular la tasa de rechazo.</span></li>
-          <li class="flex items-start gap-2">${icon('map', 'w-4 h-4 text-[#1F6C9F] shrink-0 mt-0.5')}<span>Un mapa de calor real, por coordenadas, de dónde circula la gente.</span></li>
-          <li class="flex items-start gap-2">${icon('layout-grid', 'w-4 h-4 text-[#1F6C9F] shrink-0 mt-0.5')}<span>Comparar dos videos lado a lado con su análisis completo.</span></li>
-          <li class="flex items-start gap-2">${icon('shield-check', 'w-4 h-4 text-[#346538] shrink-0 mt-0.5')}<span>100% anónimo: nunca se identifica rostros ni personas, solo trayectorias.</span></li>
-        </ul>
-      </div>
-
-      <p class="text-[11px] text-[#A8A29E]">
-        Hecho con Python (visión por computador) y un dashboard web ligero, sobre una base de datos PostgreSQL.
-      </p>
-
-      <button type="button" data-action="entrar-panel"
-              class="inline-flex items-center gap-2 px-6 py-2.5 bg-[#1F6C9F] hover:bg-[#18567D] text-white text-sm font-semibold rounded-lg shadow-xs transition-colors">
-        Entrar al panel ${icon('arrow-right', 'w-4 h-4')}
-      </button>
     </div>
   </div>`;
 }

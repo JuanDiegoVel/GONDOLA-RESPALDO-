@@ -28,11 +28,21 @@ const state = {
   // #/panel guardado de una visita anterior ya no la salta.
   mostrandoInicio: rutaActual() === 'inicio',
   // Modo oscuro: se recuerda por navegador (localStorage). Si nunca se ha
-  // tocado el interruptor, se sigue la preferencia del sistema operativo
-  // (prefers-color-scheme) en vez de forzar claro para todos.
+  // tocado el interruptor, arranca OSCURO -no siguiendo al sistema, como
+  // antes-. El oscuro es el tema para el que se diseno la interfaz, y la
+  // escena de uso manda: esto se presenta proyectado en un salon y se
+  // consulta en la trastienda de una tienda, no en una oficina soleada.
+  // El interruptor sigue ahi y su eleccion sigue mandando sobre esto.
   darkMode: localStorage.getItem('gondola_dark_mode') !== null
     ? localStorage.getItem('gondola_dark_mode') === 'true'
-    : window.matchMedia('(prefers-color-scheme: dark)').matches,
+    : true,
+  // Seccion activa del panel. El panel dejo de ser un unico scroll larguisimo
+  // y se reparte en secciones que se eligen en la barra lateral. Vive en el
+  // estado (y se recuerda por navegador), NO en el hash de la URL: el hash
+  // ya lo usan inicio/panel/comparar, con un arreglo de un companero que
+  // fuerza #/inicio en cada carga -meter subrutas ahi era arriesgar ese
+  // comportamiento a cambio de nada.
+  panelSeccion: localStorage.getItem('gondola_panel_seccion') || 'resumen',
   // Estilo del mapa de calor real (ver HEATMAP_ESTILOS): un solo estilo
   // para toda la pantalla (principal y comparacion), no uno por video.
   heatmapStyle: localStorage.getItem('gondola_heatmap_style') || 'contraste',

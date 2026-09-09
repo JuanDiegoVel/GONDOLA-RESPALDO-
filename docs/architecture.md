@@ -101,7 +101,7 @@ plano para no obligar al equipo a instalar un segundo entorno — la parte
 que sí se sostiene de "un solo entorno que instalar" es que sigue sin
 necesitar Node en ninguna máquina, aunque el código ya no vive en un solo
 archivo: `frontend/index.html` es solo la cáscara, y el CSS/JS de verdad
-se reparte en `frontend/css/` y 14 archivos bajo `frontend/js/` (uno por
+se reparte en `frontend/css/` y 13 archivos bajo `frontend/js/` (uno por
 responsabilidad), cargados como `<script>` clásicos que comparten un
 único ámbito global. Lo que sí se pierde es que quien solo sabe Python no
 puede leer este código tan fácil como leería un `.py`. El detalle

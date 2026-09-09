@@ -1,287 +1,1009 @@
-.shadow-xs { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04); }
-.focus\:outline-hidden:focus { outline: none; }
+/* ==========================================================================
+   GONDOLA INTELIGENTE - SISTEMA VISUAL
+   ==========================================================================
+   Dos temas VIVOS, no uno vivo y otro lavado. Lienzo con aurora de color,
+   superficies solidas y tres acentos: cian (accion y seleccion), rosa
+   (segundo plano, para distinguir dos series) y violeta (realce).
+
+   POR QUE ESTA HOJA SE VE ASI (leelo antes de tocarla)
+   ----------------------------------------------------
+   El dashboard esta escrito con clases de Tailwind con el color metido a
+   mano en el nombre (bg-white, text-[#787774], border-[#EAEAEA]...),
+   repartidas por ~2000 lineas de plantillas en 14 archivos JS. Cambiar el
+   color pasando por esos archivos habria sido tocar cada linea de cada
+   render*(), en un proyecto que hay que poder defender ante un jurado.
+
+   En vez de eso, aqui se define UN sistema de tokens (las variables de
+   abajo) y se INTERCEPTA cada nombre de clase literal para reapuntarlo al
+   token que le toca. Los archivos JS no cambian, y los dos temas salen del
+   mismo mapeo: solo cambian los valores de las variables.
+
+   ESPECIFICIDAD: Tailwind se carga en runtime e inyecta su CSS DESPUES de
+   esta hoja. Una regla `.bg-white` suya (0,1,0) le ganaria por orden a un
+   `[class~="bg-white"]` nuestro (tambien 0,1,0). Por eso cada mapeo lleva
+   `:root` delante: sube a (0,2,0) y gana siempre. No es adorno, no lo
+   quites.
+
+   `[class~="..."]` exige que el token aparezca completo y separado por
+   espacios: "bg-slate-50" no captura "text-slate-500" por accidente, como
+   si pasaria con un `*=`. Y los estados (`hover:bg-x`) son un token de
+   clase DISTINTO de `bg-x`, asi que llevan su propia regla.
+
+   CONTRASTE: en tema claro los acentos vienen en DOS intensidades. La
+   saturada (`--accent-solid`, `--*-bar`) es para rellenos y barras, donde
+   el area es grande y no lleva texto encima; la mas profunda (`--accent`,
+   `--success`...) es para texto e iconos, y es la que cumple 4.5:1. Subir
+   la saturacion del token de TEXTO es justo lo que rompe la legibilidad.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TOKENS
+   --------------------------------------------------------------------------
+   Los semanticos de DATOS (exito/alerta/peligro) conservan su significado:
+   en un dashboard el color de un dato es informacion, no decoracion. Se
+   subio su viveza, nunca su tono: verde sigue siendo verde.
+   -------------------------------------------------------------------------- */
 :root {
-  --ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* ---- Tema claro (sin clase en <html>) ---- */
+  --canvas:        #F3F6FF;
+  --surface:       #FFFFFF;
+  --surface-2:     #EAF0FE;
+  --surface-3:     #E6EEFD;
+  --surface-deep:  #0B1220;
+  --well:          #070C16;
+
+  --border:        #CBDCF5;
+  --border-strong: #A9C2E8;
+
+  --text-strong:   #0B1220;
+  --text:          #1B2740;
+  --text-muted:    #3F4E6B;
+  --text-dim:      #55637C;
+  --text-faint:    #5C6A84;
+  --text-on-solid: #FFFFFF;
+
+  --accent:          #0E7490;   /* texto e iconos: 5.4:1 sobre blanco */
+  --accent-hover:    #155E75;
+  --accent-solid:    #06B6D4;   /* rellenos y barras: saturado */
+  --accent-contrast: #FFFFFF;
+  --accent-tint:   rgb(6 182 212 / .12);
+  --accent-line:   rgb(6 182 212 / .45);
+  --accent-ring:   rgb(6 182 212 / .24);
+  --accent-glow:   rgb(6 182 212 / .28);
+
+  --accent-2:      #DB2777;
+  --accent-3:      #7C3AED;
+
+  --success:       #047857;  --success-bar: #10B981;
+  --success-bg:    #DCFCE7;  --success-line: #86EFAC;
+  --warn:          #A04A08;  --warn-bar:    #F59E0B;
+  --warn-bg:       #FEF3C7;  --warn-line:   #FCD34D;
+  --danger:        #BE123C;  --danger-bar:  #F43F5E;
+  --danger-bg:     #FFE4E6;  --danger-line: #FDA4AF;
+  --info:          #4F46E5;
+  --info-bg:       #E0E7FF;  --info-line:   #A5B4FC;
+
+  --inverse-bg:    #0B1220;
+  --inverse-hover: #1B2740;
+
+  --backdrop:      rgb(11 18 32 / .55);
+  --shadow-card:   0 1px 2px rgb(11 18 32 / .05), 0 10px 26px -14px rgb(11 18 32 / .18);
+  --shadow-pop:    0 26px 60px -22px rgb(11 18 32 / .32);
+
+  /* ---- Movimiento ----
+     Curvas fuertes: las de serie de CSS son demasiado flojas y las
+     animaciones se sienten sin intencion. Nunca ease-in en interfaz
+     -arranca lento justo en el instante que el ojo esta mirando, y hace
+     que todo parezca perezoso aunque dure lo mismo. */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --t-press:  140ms;
+  --t-hover:  170ms;
+  --t-pop:    210ms;
+  --t-modal:  260ms;
 }
-body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
-::selection { background: rgb(31 108 159 / 0.12); color: #1F6C9F; }
-/* ---------------------------------------------------------------------
-   TINTES PASTEL (claro y oscuro)
-   ---------------------------------------------------------------------
-   Antes todo era el mismo blanco/gris neutro y la pantalla se veia plana.
-   Ahora las superficies llevan un tinte muy leve tomado de los MISMOS
-   colores de acento que el dashboard ya usaba: el azul #1F6C9F, el ambar
-   #956400 y el rojo #9F2F2D. No hay ningun color nuevo: son los acentos
-   que la paleta ya tenia, usados en opacidades muy bajas como fondo.
 
-   El tinte va tanto en el fondo de la pagina COMO en las superficies. Solo
-   en el fondo casi no se notaba: las tarjetas son opacas y tapan la mayor
-   parte de la pantalla, asi que el degradado apenas asomaba por los huecos.
+html.dark {
+  color-scheme: dark;
 
-   Aun asi el color se mantiene por debajo del contenido: los colores
-   semanticos de las tarjetas (verde=bien, rojo=alerta) y el mapa de calor
-   son DATOS, y tienen que seguir leyendose como la informacion, no
-   compitiendo con el decorado. Cada vez que se suban estos valores hay que
-   volver a comprobar el contraste del texto tenue (#787774 en claro,
-   #96938C en oscuro), que es el primero que se rompe.
+  --canvas:        #070A12;
+  --surface:       #111A2E;
+  --surface-2:     #0C1424;
+  --surface-3:     #1C2A44;
+  --surface-deep:  #050810;
+  --well:          #04070D;
 
-   `background-attachment: fixed` deja el degradado quieto al hacer
-   scroll: si se moviera, se notaria como una mancha viajando. */
-.app-bg {
-  background-color: #F4F6FA;
+  --border:        #26344F;
+  --border-strong: #374763;
+
+  --text-strong:   #F5F9FF;
+  --text:          #EAF0FB;
+  --text-muted:    #C0CDE3;
+  --text-dim:      #9DACC6;
+  --text-faint:    #8494B1;
+  --text-on-solid: #04121A;
+
+  --accent:          #22D3EE;
+  --accent-hover:    #67E8F9;
+  --accent-solid:    #22D3EE;
+  --accent-contrast: #04212B;
+  --accent-tint:   rgb(34 211 238 / .14);
+  --accent-line:   rgb(34 211 238 / .48);
+  --accent-ring:   rgb(34 211 238 / .26);
+  --accent-glow:   rgb(34 211 238 / .40);
+
+  --accent-2:      #F472B6;
+  --accent-3:      #A78BFA;
+
+  --success:       #34D399;  --success-bar: #34D399;
+  --success-bg:    #06281D;  --success-line: #17553C;
+  --warn:          #FBBF24;  --warn-bar:    #FBBF24;
+  --warn-bg:       #2C2007;  --warn-line:   #533E10;
+  --danger:        #FB7185;  --danger-bar:  #FB7185;
+  --danger-bg:     #2E1019;  --danger-line: #5C2233;
+  --info:          #818CF8;
+  --info-bg:       #171A3E;  --info-line:   #333A80;
+
+  --inverse-bg:    #22D3EE;
+  --inverse-hover: #67E8F9;
+
+  --backdrop:      rgb(2 4 9 / .74);
+  --shadow-card:   0 1px 2px rgb(0 0 0 / .45), 0 12px 32px -16px rgb(0 0 0 / .75);
+  --shadow-pop:    0 30px 68px -22px rgb(0 0 0 / .85);
+}
+
+/* --------------------------------------------------------------------------
+   2. LIENZO: AURORA
+   --------------------------------------------------------------------------
+   Sustituye a la constelacion de particulas animadas que vivia en un
+   <canvas> aparte (js/particulas.js, borrado). Aquella corria un bucle de
+   requestAnimationFrame permanente con coste O(n^2) -comparaba cada
+   particula contra todas las demas para dibujar las lineas- todo el tiempo
+   que la pestana estuviera abierta.
+
+   Esto es una capa fija con manchas de color amplias que se funden entre
+   si. Se mueve, pero MUY despacio (80 s por ciclo) y solo con `transform`,
+   que el navegador resuelve en la GPU sin volver a calcular el diseno ni
+   repintar nada: cuesta practicamente cero y no compite con los datos,
+   porque las tarjetas son opacas y va por detras de todas.
+   -------------------------------------------------------------------------- */
+:root {
+  --font-ui:   'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+body { font-family: var(--font-ui); }
+/* Mono SOLO para cifras medidas: no es disfraz de "tecnico", son medidas,
+   y sus numerales de ancho fijo evitan que un numero cambie de tamano
+   mientras cuenta o descuadre una columna. */
+.font-data { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+.app-bg { background-color: var(--canvas); position: relative; }
+.app-bg::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: 0;
+  pointer-events: none;
   background-image:
-    radial-gradient(ellipse 80% 55% at 10% -12%, rgb(31 108 159 / 0.22), transparent 66%),
-    radial-gradient(ellipse 55% 45% at 98% 4%, rgb(159 47 45 / 0.10), transparent 64%),
-    radial-gradient(ellipse 75% 60% at 90% 106%, rgb(149 100 0 / 0.18), transparent 66%);
-  background-attachment: fixed;
+    radial-gradient(ellipse 44% 38% at 14% 12%, rgb(6 182 212 / .40), transparent 62%),
+    radial-gradient(ellipse 38% 34% at 84% 8%,  rgb(219 39 119 / .26), transparent 62%),
+    radial-gradient(ellipse 46% 40% at 88% 82%, rgb(124 58 237 / .32), transparent 64%),
+    radial-gradient(ellipse 36% 32% at 32% 92%, rgb(6 182 212 / .24), transparent 64%);
+  animation: aurora 80s var(--ease-in-out) infinite alternate;
+  will-change: transform;
 }
-/* `html:not(.dark)` no es adorno: sube la especificidad por encima de la
-   utilidad `.bg-white` que Tailwind inyecta en runtime (que empata con un
-   selector de atributo suelto y, al inyectarse despues, ganaria). Es el
-   espejo exacto del bloque `html.dark` de mas abajo. */
-html:not(.dark) [class~="bg-white"],
-html:not(.dark) [class~="bg-[#F9F9F8]"] { background-color: #F8FBFF; }
-html:not(.dark) [class~="bg-[#F7F6F3]"],
-html:not(.dark) [class~="bg-[#F3F2EF]"],
-html:not(.dark) [class~="bg-slate-50"],
-html:not(.dark) [class~="bg-slate-100"] { background-color: #E6EEF9; }
-html:not(.dark) [class~="border-[#EAEAEA]"],
-html:not(.dark) [class~="border-slate-100"],
-html:not(.dark) [class~="border-slate-200"] { border-color: #D8E3F0; }
-/* Al teñir las superficies subio su luminosidad, y el texto tenue se
-   quedaba en 3.83:1 sobre la superficie secundaria -por debajo del minimo
-   accesible de 4.5:1-. Se oscurecen los dos grises mas claros lo justo
-   para recuperarlo (4.93:1 y 4.66:1) en vez de despintar el fondo, que es
-   lo contrario de lo que se buscaba. */
-html:not(.dark) [class~="text-[#787774]"] { color: #67665F; }
-html:not(.dark) [class~="text-[#A8A29E]"] { color: #6B6963; }
+html.dark .app-bg::before {
+  background-image:
+    radial-gradient(ellipse 44% 38% at 14% 12%, rgb(34 211 238 / .30), transparent 62%),
+    radial-gradient(ellipse 38% 34% at 84% 8%,  rgb(244 114 182 / .22), transparent 62%),
+    radial-gradient(ellipse 46% 40% at 88% 82%, rgb(139 92 246 / .30), transparent 64%),
+    radial-gradient(ellipse 36% 32% at 32% 92%, rgb(34 211 238 / .18), transparent 64%);
+}
+@keyframes aurora {
+  from { transform: translate3d(-3%, -2%, 0) scale(1);    }
+  to   { transform: translate3d( 3%,  2%, 0) scale(1.12); }
+}
+
+/* --------------------------------------------------------------------------
+   3. SUPERFICIES DEL NAVEGADOR
+   --------------------------------------------------------------------------
+   Lo que no dibujamos nosotros tambien es parte del diseno: seleccion,
+   cursor de texto, barras de scroll y anillo de foco vienen con los
+   valores por defecto del navegador, que no pertenecen a ninguna paleta.
+   -------------------------------------------------------------------------- */
+::selection { background: var(--accent-tint); color: var(--accent); }
+:root { caret-color: var(--accent); accent-color: var(--accent-solid); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent-solid); background-clip: content-box; }
+
+/* `:focus-visible` y no `:focus`: el anillo sale al navegar con teclado,
+   no al hacer clic con el raton. */
+:where(a, button, select, input, textarea, [tabindex], [data-action]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.focus\:outline-hidden:focus { outline: none; }
+
 .tabular-nums { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+
+/* --------------------------------------------------------------------------
+   4. MOVIMIENTO
+   --------------------------------------------------------------------------
+   Se nombran las propiedades exactas, nunca `all`: `all` obliga al
+   navegador a vigilar cada propiedad calculada y anima cosas que nadie
+   pidio (un cambio de ancho por reflujo, por ejemplo).
+
+   Todo lo de aqui se apaga con `prefers-reduced-motion` (al final).
+   -------------------------------------------------------------------------- */
 button, select, input, a, [data-action] {
-  transition: background-color .18s var(--ease), border-color .18s var(--ease),
-              color .18s var(--ease), box-shadow .22s var(--ease),
-              transform .18s var(--ease), opacity .18s var(--ease);
+  transition:
+    background-color var(--t-hover) var(--ease-out),
+    border-color     var(--t-hover) var(--ease-out),
+    color            var(--t-hover) var(--ease-out),
+    box-shadow       var(--t-pop)   var(--ease-out),
+    transform        var(--t-press) var(--ease-out),
+    opacity          var(--t-hover) var(--ease-out);
 }
+/* Respuesta al pulsar: confirma que la interfaz oyo el clic. */
 button:active, [data-action]:active { transform: scale(0.97); }
 select:disabled, button:disabled { transform: none; }
-.card-lift { transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease); }
-.card-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgb(17 17 17 / 0.08); }
-.stagger-in > * { opacity: 0; transform: translateY(6px); animation: enter .5s var(--ease) forwards; }
-.stagger-in > *:nth-child(1) { animation-delay: .02s; }
-.stagger-in > *:nth-child(2) { animation-delay: .07s; }
-.stagger-in > *:nth-child(3) { animation-delay: .12s; }
-.stagger-in > *:nth-child(4) { animation-delay: .17s; }
-.stagger-in > *:nth-child(5) { animation-delay: .22s; }
-@keyframes enter { to { opacity: 1; transform: translateY(0); } }
+
+.card-lift { transition: transform var(--t-pop) var(--ease-out), box-shadow var(--t-pop) var(--ease-out), border-color var(--t-pop) var(--ease-out); }
+/* El realce solo con raton de verdad: en tactil el :hover se dispara al
+   tocar y la tarjeta se queda levantada. */
+@media (hover: hover) and (pointer: fine) {
+  .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-pop), 0 0 0 1px var(--accent-line);
+    border-color: var(--accent-line);
+  }
+}
+
+/* Entrada escalonada de la pantalla: cada bloque entra un pelo despues del
+   anterior. Es corta a proposito (los ultimos escalones no llegan a 300ms)
+   -una coreografia larga en una herramienta se convierte en espera. */
+.stagger-in > * { animation: subirEntrando .42s var(--ease-out) both; }
+.stagger-in > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-in > *:nth-child(2) { animation-delay: 45ms; }
+.stagger-in > *:nth-child(3) { animation-delay: 90ms; }
+.stagger-in > *:nth-child(4) { animation-delay: 130ms; }
+.stagger-in > *:nth-child(5) { animation-delay: 165ms; }
+.stagger-in > *:nth-child(n+6) { animation-delay: 195ms; }
+@keyframes subirEntrando {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Las tarjetas de KPI entran una tras otra dentro de su propia fila. */
+.kpi-grid > * { animation: subirEntrando .40s var(--ease-out) both; }
+.kpi-grid > *:nth-child(1) { animation-delay: 30ms; }
+.kpi-grid > *:nth-child(2) { animation-delay: 65ms; }
+.kpi-grid > *:nth-child(3) { animation-delay: 100ms; }
+.kpi-grid > *:nth-child(4) { animation-delay: 135ms; }
+.kpi-grid > *:nth-child(5) { animation-delay: 170ms; }
+.kpi-grid > *:nth-child(6) { animation-delay: 205ms; }
+
+/* Momento con autoria del panel: las barras creciendo desde la izquierda
+   cuando llegan los datos, junto al conteo de las cifras (ver app.js).
+   Comunica un estado -"esto ya cargo"-, no adorna. */
+.kpi-bar { transition: transform .85s var(--ease-out); transform-origin: left; will-change: transform; }
+.row-hover { transition: background-color var(--t-hover) var(--ease-out); }
+
+/* Barra segmentada del menu: la pastilla activa se DESPLAZA entre
+   opciones en vez de aparecer y desaparecer. Es transform puro, asi que
+   corre en la GPU y se puede interrumpir a mitad sin saltos. */
+/* Rejilla de columnas iguales, no flex: asi la pastilla mide exactamente
+   media barra y `translateX(100%)` la deja clavada sobre la segunda
+   opcion, sin depender de cuanto ocupe cada palabra. */
+.seg {
+  position: relative; display: grid; grid-auto-flow: column;
+  grid-auto-columns: 1fr; padding: 3px; border-radius: 11px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.seg-pill {
+  position: absolute; top: 3px; bottom: 3px; left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .18), 0 0 0 1px var(--accent-line);
+  transition: transform var(--t-pop) var(--ease-out);
+  will-change: transform;
+  pointer-events: none;
+}
+.seg-btn {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; padding: 0 14px; border-radius: 8px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  color: var(--text-dim);
+}
+.seg-btn:hover { color: var(--text-strong); }
+.seg-btn[aria-current="page"] { color: var(--accent); }
+
+/* El mapa de calor se revela de izquierda a derecha en vez de aparecer de
+   golpe: `clip-path` no toca el diseno, asi que el barrido es fluido. */
+.revelar-mapa { animation: revelarMapa .7s var(--ease-out) both; }
+@keyframes revelarMapa {
+  from { clip-path: inset(0 100% 0 0); opacity: .4; }
+  to   { clip-path: inset(0 0 0 0);    opacity: 1;  }
+}
+
 .skeleton {
-  background: linear-gradient(100deg, #f3f2ef 30%, #f7f6f3 45%, #f3f2ef 60%);
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface-3) 45%, var(--surface-2) 60%);
   background-size: 250% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
 }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -50% 0; } }
+
 @keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes modalIn { from { opacity: 0; transform: scale(.94) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-.modal-backdrop { animation: backdropIn .2s var(--ease); }
-.modal-anim { animation: modalIn .35s var(--ease-spring); }
-.kpi-bar { transition: transform .7s var(--ease); transform-origin: left; will-change: transform; }
-.row-hover { transition: background-color .15s var(--ease); }
+/* Nunca desde scale(0): nada en el mundo real aparece de la nada. Desde
+   0.96 con opacidad ya se lee como un objeto que se acerca. El origen se
+   queda en el centro: un modal no cuelga de ningun disparador concreto. */
+@keyframes modalIn { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.modal-backdrop { animation: backdropIn var(--t-pop) var(--ease-out); backdrop-filter: blur(4px); }
+.modal-anim { animation: modalIn var(--t-modal) var(--ease-out); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  .app-bg::before { animation: none !important; }
 }
 
-/* ==========================================================================
-   MODO OSCURO
-   ==========================================================================
-   El dashboard esta escrito con clases de Tailwind sueltas por todo el
-   archivo (bg-white, text-[#2F3437], etc.), no con un sistema de variables
-   de color: agregar "dark:" a cada una de las ~2000 lineas de render*()
-   hubiera sido un cambio enorme y muy propenso a error para una sola
-   sesion. En vez de eso, este bloque intercepta esas MISMAS clases por su
-   nombre literal con selectores de atributo (`[class~="..."]`, que exige
-   que el token aparezca completo separado por espacios: no hay riesgo de
-   que "bg-slate-50" tambien capture "text-slate-500" por accidente, como
-   si pasaria con un simple *=). Activado agregando/quitando la clase
-   "dark" en <html> (ver toggle-dark-mode en el manejador de acciones y el
-   `document.documentElement.classList.toggle('dark', ...)` al inicio de
-   render()). Colores elegidos para mantener el mismo significado semantico
-   (verde=exito, ambar=alerta, rojo=peligro, azul=acento) con suficiente
-   contraste sobre fondos oscuros, no solo invertir blanco/negro. */
-html.dark { color-scheme: dark; }
-/* Mismos tres tintes que en claro (ver el bloque de .app-bg), un poco mas
-   presentes porque sobre fondo oscuro un 5% no se ve. El fondo tambien
-   pasa de gris neutro a un negro con una gota de azul. */
-html.dark body.app-bg {
-  background-color: #14161C;
-  background-image:
-    radial-gradient(ellipse 80% 55% at 10% -12%, rgb(31 108 159 / 0.34), transparent 66%),
-    radial-gradient(ellipse 55% 45% at 98% 4%, rgb(159 47 45 / 0.16), transparent 64%),
-    radial-gradient(ellipse 75% 60% at 90% 106%, rgb(149 100 0 / 0.26), transparent 66%);
-  background-attachment: fixed;
-}
-html.dark [class~="text-[#2F3437]"] { color: #EDEBE7; }
-html.dark [class~="text-[#111111]"] { color: #F5F3F0; }
-/* Tarjetas y superficies: antes gris neutro (#232326 / #1d1d20), ahora con
-   el mismo azul del tinte de fondo mezclado muy sutilmente, para que el
-   oscuro no se vea "sucio" y case con los tintes del fondo. */
-html.dark [class~="bg-white"],
-html.dark [class~="bg-[#F9F9F8]"] { background-color: #232935; }
-html.dark [class~="bg-[#F7F6F3]"],
-html.dark [class~="bg-[#F3F2EF]"],
-html.dark [class~="bg-slate-50"],
-html.dark [class~="bg-slate-100"] { background-color: #191E29; }
-html.dark [class~="bg-slate-200"] { background-color: #35353a; }
-html.dark [class~="bg-slate-300"] { background-color: #46464c; }
-html.dark [class~="bg-slate-800"] { background-color: #2c2c30; }
-html.dark [class~="bg-slate-900"] { background-color: #232326; }
-html.dark [class~="bg-[#D6D3D1]"] { background-color: #46464c; }
-html.dark [class~="bg-[#EAEAEA]"] { background-color: #2c2c30; }
-/* Bordes */
-html.dark [class~="border-slate-100"],
-html.dark [class~="border-slate-200"],
-html.dark [class~="border-[#EAEAEA]"],
-html.dark [class~="border-[#F3F2EF]"] { border-color: #333C4C; }
-html.dark [class~="border-slate-300"],
-html.dark [class~="border-[#D6D3D1]"] { border-color: #46464c; }
-html.dark [class~="border-black"] { border-color: #4a4a50; }
-/* Texto en escala de gris: el orden se invierte a proposito -slate-900
-   era el mas oscuro/prominente en claro, aqui debe ser el mas claro- */
-html.dark [class~="text-slate-900"] { color: #F5F3F0; }
-html.dark [class~="text-slate-700"],
-html.dark [class~="text-[#44403C]"] { color: #D6D3CE; }
-html.dark [class~="text-slate-600"],
-html.dark [class~="text-[#57534E]"] { color: #B7B4AD; }
-html.dark [class~="text-slate-500"],
-html.dark [class~="text-[#787774]"] { color: #96938C; }
-html.dark [class~="text-slate-400"],
-/* Sube de #6E6B65 a #96938C: en oscuro ese gris se quedaba en 2.95:1
-   sobre la tarjeta -ilegible, y ya venia asi de antes de tenir nada-.
-   Ahora da 4.76:1 y las notas al pie se pueden leer de verdad. */
-html.dark [class~="text-[#A8A29E]"] { color: #96938C; }
-html.dark [class~="text-[#D6D3D1]"] { color: #8B887F; }
-html.dark [class~="text-[#E5E3DE]"] { color: #E5E3DE; }
-/* Acento azul de marca: mismo tono, un poco mas claro para contraste */
-html.dark [class~="text-[#1F6C9F]"] { color: #5CACD9; }
-html.dark [class~="hover:text-[#18567D]"]:hover { color: #7EC2E6; }
-html.dark [class~="bg-[#1F6C9F]"] { background-color: #2D82B5; }
-html.dark [class~="hover:bg-[#18567D]"]:hover { background-color: #256E92; }
-html.dark [class~="border-[#1F6C9F]"] { border-color: #5CACD9; }
-/* Exito/verde */
-html.dark [class~="bg-emerald-50"],
-html.dark [class~="bg-[#EDF3EC]"] { background-color: #16261c; }
-html.dark [class~="border-emerald-200"],
-html.dark [class~="border-[#C7D6C5]"] { border-color: #2d4436; }
-html.dark [class~="text-emerald-600"],
-html.dark [class~="text-emerald-900"],
-html.dark [class~="text-[#346538]"],
-html.dark [class~="text-[#2B5230]"] { color: #7FCE9C; }
-/* Alerta/ambar */
-html.dark [class~="bg-amber-50"],
-html.dark [class~="bg-[#FBF3DB]"] { background-color: #2b2410; }
-html.dark [class~="border-amber-200"],
-html.dark [class~="border-[#EDD9A3]"] { border-color: #4a3c17; }
-html.dark [class~="text-amber-600"],
-html.dark [class~="text-amber-800"],
-html.dark [class~="text-amber-900"],
-html.dark [class~="text-[#956400]"],
-html.dark [class~="text-[#7A5200]"],
-html.dark [class~="hover:text-[#5C3F00]"]:hover,
-html.dark [class~="text-[#B8790B]"] { color: #E8B84D; }
-/* Peligro/rojo */
-html.dark [class~="bg-red-50"] { background-color: #341414; }
-html.dark [class~="border-red-100"],
-html.dark [class~="border-red-200"] { border-color: #4a2320; }
-html.dark [class~="text-red-600"],
-html.dark [class~="text-red-800"],
-html.dark [class~="text-red-900"],
-html.dark [class~="text-[#9F2F2D]"],
-html.dark [class~="text-[#7F2523]"] { color: #F09891; }
-/* Indigo (modal de configuracion) */
-html.dark [class~="bg-indigo-50"],
-html.dark [class~="bg-indigo-100"] { background-color: #201f42; }
-html.dark [class~="bg-indigo-600"] { background-color: #6366F1; }
-html.dark [class~="text-indigo-600"],
-html.dark [class~="text-indigo-700"] { color: #ABB4FA; }
-html.dark [class~="border-indigo-200"] { border-color: #34346b; }
-/* Superficies oscuras que YA eran oscuras en modo claro (tarjeta de
-   privacidad, placeholder de video): se dejan iguales, solo se separa
-   un poco mas el borde para que no se fundan con el fondo de pagina. */
-html.dark [class~="border-[#3A3F42]"] { border-color: #4a4f52; }
-html.dark [class~="border-dashed"] { border-color: #46464c; }
-html.dark .skeleton {
-  background: linear-gradient(100deg, #232326 30%, #2c2c30 45%, #232326 60%);
-  background-size: 250% 100%;
-}
-html.dark [class~="shadow-xs"],
-html.dark [class~="shadow-sm"] { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4); }
-html.dark [class~="shadow-xl"] { box-shadow: 0 20px 40px -10px rgb(0 0 0 / 0.6); }
-/* Estados :hover -son un token de clase DISTINTO ("hover:bg-slate-100"
-   no es "bg-slate-100"), asi que necesitan su propia regla aparte. */
-html.dark [class~="hover:bg-[#EAEAEA]"]:hover,
-html.dark [class~="hover:bg-[#F7F6F3]"]:hover,
-html.dark [class~="hover:bg-slate-100"]:hover { background-color: #2c2c30; }
-html.dark [class~="hover:bg-slate-200"]:hover { background-color: #38383d; }
-html.dark [class~="hover:bg-slate-800"]:hover { background-color: #3a3a40; }
-html.dark [class~="hover:bg-indigo-100"]:hover { background-color: #2b2a57; }
-html.dark [class~="hover:text-[#111111]"]:hover,
-html.dark [class~="hover:text-slate-900"]:hover { color: #F5F3F0; }
-html.dark [class~="hover:text-slate-700"]:hover { color: #D6D3CE; }
-html.dark [class~="hover:text-[#787774]"]:hover { color: #96938C; }
-/* Variantes con opacidad ("bg-slate-50/70") son tambien un token distinto */
-html.dark [class~="bg-slate-50/70"],
-html.dark [class~="bg-slate-200/70"] { background-color: rgb(35 35 38 / 0.7); }
-html.dark [class~="bg-red-50/70"] { background-color: rgb(52 20 20 / 0.7); }
-html.dark [class~="bg-slate-900/60"] { background-color: rgb(0 0 0 / 0.6); }
-/* Tarjetas con degradado puesto por style="" inline (no una clase de
-   Tailwind): un inline style le gana a CUALQUIER selector de clase por
-   especificidad, sin importar el orden -esta fue la causa real de que
-   "Mapa de Calor Real" y las tarjetas de gondola/estante se vieran
-   lavadas en modo oscuro, con texto casi invisible sobre un fondo que
-   seguia blanco-. Un !important en la hoja de estilos SI le gana a un
-   inline style sin !important (regla poco conocida de CSS), asi que se
-   engancha por el propio valor del atributo style con [style*="..."]. */
-html.dark [style*="linear-gradient(165deg,#FFFFFF 0%,#EEF1F0 100%)"] { background: linear-gradient(165deg,#1d1d20 0%,#232326 100%) !important; }
-html.dark [style*="linear-gradient(160deg,#FFFFFF 0%,#F3F2EF 100%)"] { background: linear-gradient(160deg,#1d1d20 0%,#232326 100%) !important; }
-/* <select> nativo: color-scheme le pide al navegador que dibuje sus
-   controles nativos (incluida la lista desplegable) en tema oscuro, pero
-   algunos navegadores solo lo respetan si tambien se fija en el elemento
-   mismo, no solo en un ancestro. */
-html.dark select, html.dark option { color-scheme: dark; background-color: #232326; color: #EDEBE7; }
-/* Variantes con opacidad de colores arbitrarios ("bg-[#EDF3EC]/60"): son
-   un token de clase distinto a "bg-[#EDF3EC]" (sin opacidad), asi que
-   necesitan su propia regla -eran las tarjetas de "Diagnostico" que se
-   veian lavadas: el fondo se quedaba claro y translucido sobre una
-   tarjeta ya oscura, con el texto (ya oscurecido por su propia regla)
-   casi invisible encima-. */
-html.dark [class~="bg-[#EDF3EC]/60"] { background-color: rgb(22 38 28 / 0.6); }
-html.dark [class~="bg-[#FBF3DB]/40"] { background-color: rgb(43 36 16 / 0.5); }
-html.dark [class~="bg-[#1F6C9F]/10"] { background-color: rgb(92 172 217 / 0.15); }
-html.dark [class~="border-[#1F6C9F]/40"] { border-color: rgb(92 172 217 / 0.4); }
-html.dark [class~="border-black/5"] { border-color: rgb(255 255 255 / 0.08); }
-/* Modal de "Subir video": mismos colores semanticos (azul=marca,
-   verde=exito, ambar=alerta, rojo=peligro) en variantes de opacidad que
-   no aparecian en ningun otro lado del dashboard. */
-html.dark [class~="bg-[#1F6C9F]/5"] { background-color: rgb(92 172 217 / 0.08); }
-html.dark [class~="bg-[#346538]/5"] { background-color: rgb(127 206 156 / 0.08); }
-html.dark [class~="border-[#346538]/30"] { border-color: rgb(127 206 156 / 0.3); }
-html.dark [class~="bg-[#956400]/5"] { background-color: rgb(232 184 77 / 0.08); }
-html.dark [class~="border-[#956400]/30"] { border-color: rgb(232 184 77 / 0.3); }
-html.dark [class~="bg-[#9F2F2D]/5"],
-html.dark [class~="bg-[#9F2F2D]/10"] { background-color: rgb(240 152 145 / 0.1); }
-html.dark [class~="border-[#9F2F2D]/30"] { border-color: rgb(240 152 145 / 0.3); }
-html.dark [class~="bg-[#111111]"] { background-color: #2a2a2e; }
-html.dark [class~="hover:bg-[#2F3437]"]:hover { background-color: #3a3a40; }
+/* --------------------------------------------------------------------------
+   5. MAPEO DE CLASES -> TOKENS
+   --------------------------------------------------------------------------
+   A partir de aqui no hay decisiones de diseno, solo el puente entre los
+   nombres literales que escriben los archivos JS y los tokens de arriba.
+   Escrito una sola vez: sirve para los dos temas.
+   -------------------------------------------------------------------------- */
 
-/* Reporte en PDF: window.print() sobre la pantalla normal, ocultando lo
-   que no tiene sentido en papel (botones, el reproductor de video, el
-   portal del video que vive fuera de #root) y mostrando un encabezado de
-   reporte que en pantalla esta oculto. Nada de esto rasteriza nada: el
-   texto sigue siendo texto real (seleccionable, buscable) en el PDF. */
+/* --- Fondos: superficies --- */
+:root [class~="bg-white"],
+:root [class~="bg-[#F9F9F8]"]      { background-color: var(--surface); }
+:root [class~="bg-[#F3F2EF]"],
+:root [class~="bg-[#F7F6F3]"],
+:root [class~="bg-slate-50"],
+:root [class~="bg-slate-100"]      { background-color: var(--surface-2); }
+:root [class~="bg-[#EAEAEA]"],
+:root [class~="bg-slate-200"]      { background-color: var(--surface-3); }
+:root [class~="bg-[#D6D3D1]"],
+:root [class~="bg-slate-300"]      { background-color: var(--border-strong); }
+:root [class~="bg-slate-800"],
+:root [class~="bg-slate-900"],
+:root [class~="bg-[#2A2E31]"]      { background-color: var(--surface-deep); }
+:root [class~="bg-[#0B1220]"]      { background-color: var(--well); }
+:root [class~="bg-slate-50/70"],
+:root [class~="bg-slate-200/70"]   { background-color: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+:root [class~="bg-slate-900/60"]   { background-color: var(--backdrop); }
+
+/* --- Fondos: marca y semanticos --- */
+:root [class~="bg-[#111111]"]      { background-color: var(--inverse-bg); }
+:root [class~="bg-[#1F6C9F]"]      { background-color: var(--accent-solid); }
+:root [class~="bg-[#1F6C9F]/5"],
+:root [class~="bg-[#1F6C9F]/10"]   { background-color: var(--accent-tint); }
+:root [class~="bg-[#346538]"]      { background-color: var(--success); }
+:root [class~="bg-[#956400]"]      { background-color: var(--warn); }
+:root [class~="bg-[#9F2F2D]"]      { background-color: var(--danger); }
+:root [class~="bg-[#EDF3EC]"],
+:root [class~="bg-emerald-50"]     { background-color: var(--success-bg); }
+:root [class~="bg-[#FBF3DB]"],
+:root [class~="bg-amber-50"]       { background-color: var(--warn-bg); }
+:root [class~="bg-[#FAE4E4]"],
+:root [class~="bg-red-50"]         { background-color: var(--danger-bg); }
+:root [class~="bg-indigo-50"],
+:root [class~="bg-indigo-100"]     { background-color: var(--info-bg); }
+:root [class~="bg-indigo-600"]     { background-color: var(--info); }
+/* Variantes con opacidad: token de clase distinto del que no la lleva. */
+:root [class~="bg-[#EDF3EC]/60"],
+:root [class~="bg-[#346538]/5"]    { background-color: color-mix(in srgb, var(--success-bg) 70%, transparent); }
+:root [class~="bg-[#FBF3DB]/40"],
+:root [class~="bg-[#956400]/5"]    { background-color: color-mix(in srgb, var(--warn-bg) 70%, transparent); }
+:root [class~="bg-red-50/70"],
+:root [class~="bg-[#9F2F2D]/5"],
+:root [class~="bg-[#9F2F2D]/10"]   { background-color: color-mix(in srgb, var(--danger-bg) 75%, transparent); }
+
+/* --- Texto --- */
+:root [class~="text-[#111111]"],
+:root [class~="text-slate-900"],
+:root [class~="text-[#E5E3DE]"]    { color: var(--text-strong); }
+:root [class~="text-[#2F3437]"],
+:root [class~="text-slate-700"],
+:root [class~="text-[#44403C]"]    { color: var(--text); }
+:root [class~="text-[#57534E]"],
+:root [class~="text-slate-600"]    { color: var(--text-muted); }
+:root [class~="text-[#787774]"],
+:root [class~="text-slate-500"]    { color: var(--text-dim); }
+:root [class~="text-[#A8A29E]"],
+:root [class~="text-slate-400"],
+:root [class~="text-[#D6D3D1]"]    { color: var(--text-faint); }
+
+:root [class~="text-[#1F6C9F]"]    { color: var(--accent); }
+:root [class~="text-[#346538]"],
+:root [class~="text-[#2B5230]"],
+:root [class~="text-emerald-600"],
+:root [class~="text-emerald-900"]  { color: var(--success); }
+:root [class~="text-[#956400]"],
+:root [class~="text-[#7A5200]"],
+:root [class~="text-[#B8790B]"],
+:root [class~="text-amber-600"],
+:root [class~="text-amber-800"],
+:root [class~="text-amber-900"]    { color: var(--warn); }
+:root [class~="text-[#9F2F2D]"],
+:root [class~="text-[#7F2523]"],
+:root [class~="text-red-600"],
+:root [class~="text-red-800"],
+:root [class~="text-red-900"]      { color: var(--danger); }
+:root [class~="text-indigo-600"],
+:root [class~="text-indigo-700"]   { color: var(--info); }
+
+/* `text-white` no se toca en claro (va sobre botones de color solido),
+   pero en oscuro el acento es cian claro: texto blanco encima seria
+   ilegible. Se cambia por el contraste del propio acento. */
+html.dark [class~="bg-[#1F6C9F]"][class~="text-white"],
+html.dark [class~="bg-[#111111]"][class~="text-white"] { color: var(--accent-contrast); }
+
+/* --- Superficies que son OSCURAS EN LOS DOS TEMAS ---
+   La tarjeta de "Tasa de Rechazo Global", el hueco del reproductor y las
+   superficies slate-800/900 se pintan oscuras tambien en tema claro, a
+   proposito (son un bloque de enfasis invertido). Su texto, en cambio,
+   tomaba los tokens del tema claro: `--text-strong` es casi negro, o sea
+   texto negro sobre fondo casi negro -la cifra "33.3%" desaparecia por
+   completo-. Aqui se redeclaran los tokens de texto y borde a sus valores
+   oscuros SOLO dentro de esas superficies, asi que todo lo que cuelgue de
+   ellas se lee sin tener que tocar una sola clase en el JS. En tema
+   oscuro estos valores ya son los vigentes, asi que no cambia nada. */
+:root [class~="bg-[#2A2E31]"],
+:root [class~="bg-[#0B1220]"],
+:root [class~="bg-slate-800"],
+:root [class~="bg-slate-900"] {
+  --text-strong: #F5F9FF;
+  --text:        #EAF0FB;
+  --text-muted:  #C0CDE3;
+  --text-dim:    #9DACC6;
+  --text-faint:  #8494B1;
+  --accent:      #22D3EE;
+  --border:        #26344F;
+  --border-strong: #374763;
+}
+
+/* --- Bordes --- */
+:root [class~="border-[#EAEAEA]"],
+:root [class~="border-[#F3F2EF]"],
+:root [class~="border-slate-100"],
+:root [class~="border-slate-200"],
+:root [class~="border-black/5"]    { border-color: var(--border); }
+:root [class~="border-[#D6D3D1]"],
+:root [class~="border-slate-300"],
+:root [class~="border-[#3A3F42]"],
+:root [class~="border-black"],
+:root [class~="border-dashed"]     { border-color: var(--border-strong); }
+:root [class~="border-[#1F6C9F]"],
+:root [class~="border-[#1F6C9F]/40"] { border-color: var(--accent-line); }
+:root [class~="border-[#C7D6C5]"],
+:root [class~="border-emerald-200"],
+:root [class~="border-[#346538]/30"] { border-color: var(--success-line); }
+:root [class~="border-[#EDD9A3]"],
+:root [class~="border-amber-200"],
+:root [class~="border-[#956400]/30"] { border-color: var(--warn-line); }
+:root [class~="border-red-100"],
+:root [class~="border-red-200"],
+:root [class~="border-[#9F2F2D]/30"] { border-color: var(--danger-line); }
+:root [class~="border-indigo-200"],
+:root [class~="border-indigo-500"] { border-color: var(--info-line); }
+:root [class~="ring-[#1F6C9F]/20"] { --tw-ring-color: var(--accent-ring); }
+:root [class~="ring-indigo-500"]   { --tw-ring-color: var(--info-line); }
+
+/* --- Estados :hover (token de clase propio) --- */
+:root [class~="hover:bg-[#EAEAEA]"]:hover,
+:root [class~="hover:bg-[#F3F2EF]"]:hover,
+:root [class~="hover:bg-[#F7F6F3]"]:hover,
+:root [class~="hover:bg-slate-100"]:hover,
+:root [class~="hover:bg-slate-200"]:hover,
+:root [class~="hover:bg-slate-200/70"]:hover { background-color: var(--surface-3); }
+:root [class~="hover:bg-slate-800"]:hover    { background-color: var(--surface-deep); }
+:root [class~="hover:bg-[#2F3437]"]:hover    { background-color: var(--inverse-hover); }
+:root [class~="hover:bg-[#18567D]"]:hover    { background-color: var(--accent-hover); }
+:root [class~="hover:bg-[#9F2F2D]/10"]:hover { background-color: color-mix(in srgb, var(--danger-bg) 75%, transparent); }
+:root [class~="hover:bg-indigo-100"]:hover   { background-color: var(--info-bg); }
+:root [class~="hover:text-[#111111]"]:hover,
+:root [class~="hover:text-slate-900"]:hover  { color: var(--text-strong); }
+:root [class~="hover:text-slate-700"]:hover  { color: var(--text); }
+:root [class~="hover:text-[#787774]"]:hover  { color: var(--text-dim); }
+:root [class~="hover:text-[#1F6C9F]"]:hover  { color: var(--accent); }
+:root [class~="hover:text-[#18567D]"]:hover  { color: var(--accent-hover); }
+:root [class~="hover:text-[#5C3F00]"]:hover  { color: var(--warn); }
+:root [class~="hover:border-[#9F2F2D]/30"]:hover { border-color: var(--danger-line); }
+
+/* --- Sombras ---
+   Una sola declaracion de elevacion por elemento: o borde o sombra. El
+   borde de 1px debajo de una sombra ancha y difusa es la "tarjeta
+   fantasma", y aqui las tarjetas ya llevan borde, asi que la sombra se
+   queda muy contenida y solo separa del lienzo. */
+:root [class~="shadow-xs"],
+:root [class~="shadow-sm"] { box-shadow: var(--shadow-card); }
+:root [class~="shadow-xl"] { box-shadow: var(--shadow-pop); }
+.shadow-xs { box-shadow: var(--shadow-card); }
+
+/* --- Degradados puestos con style="" en linea ---
+   Un estilo en linea le gana por especificidad a CUALQUIER selector de
+   clase, sin importar el orden. Un `!important` en la hoja si le gana a un
+   estilo en linea sin `!important` (regla poco conocida de CSS), asi que
+   se enganchan por el valor literal del atributo. */
+:root [style*="linear-gradient(165deg,#FFFFFF 0%,#EEF1F0 100%)"],
+:root [style*="linear-gradient(160deg,#FFFFFF 0%,#F3F2EF 100%)"] {
+  background: linear-gradient(165deg, var(--surface) 0%, var(--surface-2) 100%) !important;
+}
+
+/* --- Controles nativos ---
+   color-scheme le pide al navegador que dibuje sus propios controles (la
+   lista desplegable de un <select>, por ejemplo) acorde al tema. Algunos
+   navegadores solo lo respetan si tambien se fija en el elemento, no solo
+   en un ancestro. */
+:root select, :root option { background-color: var(--surface); color: var(--text); }
+html.dark select, html.dark option { color-scheme: dark; }
+
+/* --------------------------------------------------------------------------
+   6. IMPRESION (reporte en PDF)
+   --------------------------------------------------------------------------
+   window.print() sobre la pantalla normal, ocultando lo que no tiene
+   sentido en papel y mostrando un encabezado de reporte que en pantalla
+   esta oculto. No rasteriza nada: el texto sigue siendo texto real
+   (seleccionable y buscable) en el PDF.
+
+   Se fuerza el tema claro en papel aunque la pantalla este en oscuro: un
+   lienzo azul casi negro se bebe el toner y se lee peor impreso.
+   -------------------------------------------------------------------------- */
 .solo-imprimir { display: none; }
 @media print {
   .no-imprimir, #video-player-portal, #video-compare-a-portal, #video-compare-b-portal { display: none !important; }
   .solo-imprimir { display: block !important; }
-  body { background: #fff !important; }
+  :root, html.dark {
+    --canvas: #FFFFFF; --surface: #FFFFFF; --surface-2: #F4F6FA; --surface-3: #E9EDF5;
+    --border: #D4DEEE; --border-strong: #B9C7DE;
+    --text-strong: #000000; --text: #1E2939; --text-muted: #46536B;
+    --text-dim: #5A6579; --text-faint: #6B7488;
+    --accent: #0E7490; --success: #15803D; --warn: #92620A; --danger: #B3261E;
+  }
+  html.dark body.app-bg, body.app-bg { background: #fff !important; }
   main { max-width: 100% !important; padding: 0 !important; }
-  .shadow-xs { box-shadow: none !important; }
+  :root [class~="shadow-xs"], :root [class~="shadow-sm"], :root [class~="shadow-xl"], .shadow-xs { box-shadow: none !important; }
   a[href]:after { content: ''; }
 }
+
+/* ==========================================================================
+   7. PORTADA
+   ==========================================================================
+   La portada es su PROPIO mundo visual y va siempre oscura, sin seguir el
+   interruptor claro/oscuro del panel. Es la pantalla de presentacion -lo
+   primero que ve un jurado-, no una herramienta: aqui manda la composicion,
+   mientras que dentro del panel manda la densidad de datos.
+
+   No usa los tokens de las secciones anteriores a proposito: si alguien
+   reafina la paleta del dashboard, esta pantalla no se descuadra.
+   ========================================================================== */
+.portada {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #0A0713;
+  color: #EDEAF6;
+  isolation: isolate;
+}
+/* Resplandor violeta del borde izquierdo. */
+.portada::before {
+  content: '';
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 46% 66% at -8% 32%, rgb(158 66 190 / .62), transparent 70%),
+    radial-gradient(ellipse 40% 48% at 2% 98%, rgb(88 50 165 / .42), transparent 72%);
+}
+/* Fotografia: entra por la derecha y se desvanece hacia el texto con una
+   mascara, en vez de cortarse con un borde duro. */
+.portada-foto {
+  position: absolute; z-index: 0; pointer-events: none;
+  top: 0; right: 0; width: 68%; max-width: 1250px;
+  opacity: 1;
+  /* La fotografia venia algo apagada para el contraste de esta pantalla;
+     se sube un punto sin quemar los blancos de las siluetas. */
+  filter: brightness(1.14) saturate(1.06);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 26%, #000 100%);
+          mask-image: linear-gradient(to right, transparent 0%, #000 26%, #000 100%);
+}
+.portada-foto img { width: 100%; height: auto; display: block; }
+/* Degradado que funde la parte baja de la foto con el fondo, para que las
+   tarjetas de abajo no queden sobre una linea de corte. */
+.portada-foto::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 42%;
+  background: linear-gradient(to bottom, transparent, #0A0713 92%);
+}
+/* En una pantalla estrecha no hay columna izquierda contra la que fundir.
+   La foto pasa a ser una BANDA propia arriba, recortada a lo alto, y el
+   contenido arranca por debajo: superponer el titular sobre la fotografia
+   lo dejaba ilegible. */
+@media (max-width: 1023px) {
+  .portada-foto {
+    width: 100%; max-width: none; height: 30vh;
+    -webkit-mask-image: linear-gradient(to bottom, #000 46%, transparent 100%);
+            mask-image: linear-gradient(to bottom, #000 46%, transparent 100%);
+  }
+  .portada-foto img { height: 100%; object-fit: cover; object-position: 62% 34%; }
+  .portada-foto::after { height: 60%; }
+  .portada .portada-contenido { padding-top: 26vh; }
+}
+
+/* Marco de esquinas: cuatro angulos finos, como el visor de un
+   instrumento. Es geometria, no una imagen. */
+.portada-marco {
+  position: absolute; inset: 18px; z-index: 2; pointer-events: none;
+}
+.portada-marco span { position: absolute; width: 46px; height: 46px; opacity: .5; }
+.portada-marco span::before, .portada-marco span::after {
+  content: ''; position: absolute; background: rgb(190 220 255 / .55);
+}
+.portada-marco span::before { width: 100%; height: 1px; }
+.portada-marco span::after  { width: 1px; height: 100%; }
+.portada-marco .es-si { top: 0; left: 0; }
+.portada-marco .es-sd { top: 0; right: 0; }
+.portada-marco .es-ii { bottom: 0; left: 0; }
+.portada-marco .es-id { bottom: 0; right: 0; }
+.portada-marco .es-sd::before { right: 0; } .portada-marco .es-sd::after { right: 0; }
+.portada-marco .es-ii::before { bottom: 0; } .portada-marco .es-ii::after { bottom: 0; }
+.portada-marco .es-id::before { bottom: 0; right: 0; } .portada-marco .es-id::after { bottom: 0; right: 0; }
+
+.portada-contenido { position: relative; z-index: 3; }
+
+/* Titular con degradado. Lo normal es que el enfasis venga del peso o del
+   tamano y no del color, pero aqui el degradado ES la marca de la portada.
+   `color` va primero como respaldo: si el navegador no soporta el recorte
+   por texto, se ve blanco en vez de invisible. */
+.portada-titulo {
+  color: #EDEAF6;
+  background: linear-gradient(112deg, #8FE9DC 4%, #EFEAF8 46%, #C9A6EC 92%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.035em;
+  line-height: .94;
+  text-wrap: balance;
+}
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .portada-titulo { -webkit-text-fill-color: #EDEAF6; background: none; }
+}
+
+/* Boton principal: pastilla cian con halo. El halo crece un poco al pasar
+   por encima -no es adorno, marca cual es LA accion de esta pantalla. */
+.portada-cta {
+  background: linear-gradient(180deg, #67E8F9 0%, #22D3EE 100%);
+  color: #052833;
+  box-shadow: 0 0 0 1px rgb(103 232 249 / .5), 0 8px 30px -6px rgb(34 211 238 / .55);
+}
+@media (hover: hover) and (pointer: fine) {
+  .portada-cta:hover { box-shadow: 0 0 0 1px rgb(103 232 249 / .7), 0 10px 40px -6px rgb(34 211 238 / .75); }
+}
+.portada-pill {
+  border: 1px solid rgb(74 222 128 / .45);
+  color: #86EFAC;
+  background: rgb(74 222 128 / .07);
+}
+
+/* Tarjetas de capacidades: vidrio sobre la fotografia. */
+.portada-tarjeta {
+  background: rgb(255 255 255 / .045);
+  border: 1px solid rgb(255 255 255 / .10);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  transition: background-color var(--t-hover) var(--ease-out), border-color var(--t-hover) var(--ease-out), transform var(--t-pop) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .portada-tarjeta:hover {
+    background: rgb(255 255 255 / .075);
+    border-color: rgb(103 232 249 / .40);
+    transform: translateY(-2px);
+  }
+}
+
+/* Firma del equipo. Rojo y blanco en mayusculas apretadas: es un guino al
+   estilo de los rotulos de comic, no el logotipo de ninguna marca. */
+.portada-firma {
+  display: inline-flex; align-items: center;
+  background: linear-gradient(180deg, #F0323C 0%, #C2101B 100%);
+  color: #FFFFFF;
+  font-weight: 700; letter-spacing: .14em;
+  padding: 7px 14px 6px; border-radius: 6px;
+  box-shadow: 0 6px 22px -8px rgb(226 30 44 / .75), inset 0 1px 0 rgb(255 255 255 / .28);
+  text-transform: uppercase;
+}
+
+/* Entrada: el titular y su columna suben, la fotografia se acerca. Una
+   sola vez al abrir, y se apaga con prefers-reduced-motion (bloque comun). */
+.portada-entra   { animation: portadaSube .75s var(--ease-out) both; }
+.portada-entra-2 { animation: portadaSube .75s var(--ease-out) .10s both; }
+.portada-entra-3 { animation: portadaSube .75s var(--ease-out) .20s both; }
+.portada-foto    { animation: portadaFoto 1.1s var(--ease-out) both; }
+@keyframes portadaSube { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes portadaFoto { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
+
+/* ==========================================================================
+   8. BARRA LATERAL Y SECCIONES DEL PANEL
+   ==========================================================================
+   El panel dejo de ser un unico scroll con todo apilado. Cada bloque es una
+   seccion y se elige en la barra lateral (ver SECCIONES_PANEL en
+   js/vista-panel.js).
+   ========================================================================== */
+.panel-nav {
+  width: 100%;
+  flex-shrink: 0;
+  display: flex; flex-direction: row; gap: 6px;
+  overflow-x: auto;             /* en movil se desplaza en horizontal */
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.panel-nav::-webkit-scrollbar { display: none; }
+.panel-nav-titulo { display: none; }
+
+@media (min-width: 1024px) {
+  .panel-nav {
+    width: 232px;
+    flex-direction: column;
+    overflow: visible;
+    position: sticky;
+    top: 88px;                  /* debajo de la cabecera pegajosa */
+    gap: 3px;
+  }
+  .panel-nav-titulo {
+    display: block;
+    font-size: 10px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--text-dim);
+    padding: 0 10px 8px;
+  }
+}
+
+.nav-item {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 10px;
+  text-align: left; white-space: nowrap;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-item:hover { background: var(--surface-2); color: var(--text-strong); }
+}
+.nav-item-icono {
+  display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  transition: background-color var(--t-hover) var(--ease-out), color var(--t-hover) var(--ease-out);
+}
+.nav-item-nombre { display: block; font-size: 13px; font-weight: 700; line-height: 1.15; }
+.nav-item-pie    { display: none; }
+@media (min-width: 1024px) {
+  .nav-item-pie {
+    display: block; font-size: 11px; line-height: 1.2;
+    color: var(--text-faint); margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+.nav-item-activo {
+  background: var(--surface);
+  border-color: var(--accent-line);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-card);
+}
+.nav-item-activo .nav-item-icono {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+/* Filo de acento del elemento activo: crece desde el centro. Es la unica
+   pieza de la barra que se mueve, y marca donde estas parado. */
+.nav-item-activo::before {
+  content: '';
+  position: absolute; left: -1px; top: 50%;
+  width: 3px; height: 60%;
+  transform: translateY(-50%);
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  animation: navFilo .28s var(--ease-out) both;
+}
+@keyframes navFilo { from { height: 0; } to { height: 60%; } }
+@media (max-width: 1023px) {
+  /* En horizontal el filo va abajo, no al costado. */
+  .nav-item-activo::before {
+    left: 12px; right: 12px; top: auto; bottom: -1px;
+    width: auto; height: 3px; transform: none;
+    border-radius: 3px 3px 0 0;
+    animation: none;
+  }
+}
+
+/* Solo se ve la seccion activa. Las demas SIGUEN en el DOM -no se
+   desmontan- por dos motivos concretos: el reporte en PDF imprime la
+   pantalla tal cual y saldria incompleto, y el portal del <video> necesita
+   medir su hueco para colocarse. */
+.panel-seccion { display: none; }
+.panel-seccion.activa { display: block; animation: seccionEntra .32s var(--ease-out) both; }
+@keyframes seccionEntra {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+/* En papel se imprimen TODAS, que es de lo que se trata un reporte. */
+@media print {
+  .panel-seccion { display: block !important; animation: none !important; margin-bottom: 1rem; }
+  .panel-nav { display: none !important; }
+}
+
+/* Tarjeta de metrica: insignia de color y un velo del mismo tono en la
+   esquina superior. `--c` lo pone la propia tarjeta (ver metricCard en
+   js/vista-panel.js) y es el MISMO token que su barra de progreso, para
+   que insignia, velo y barra nunca digan cosas distintas. */
+.metric-card { position: relative; overflow: hidden; }
+.metric-card::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 78% at 0% 0%, color-mix(in srgb, var(--c) 15%, transparent), transparent 62%);
+}
+.metric-card > * { position: relative; }
+.metric-insignia {
+  display: grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 9px;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 32%, transparent);
+}
+
+
+/* ==========================================================================
+   9. CAPA "FUTURISTA"
+   ==========================================================================
+   Brillos, auras por seccion y color en las tarjetas. Todo es DECORACION y
+   vive por detras del contenido (z-index negativo o ::before sin eventos):
+   ningun numero, etiqueta o color semantico cambia por esto. Los colores de
+   los datos -verde bien, rojo alerta, el mapa de calor- siguen intactos.
+   ========================================================================== */
+
+/* --- Tarjetas de metrica: cada una con el color de su medida ------------- */
+.metric-card::before {
+  /* mas presente que el velo anterior: el color llena la tarjeta de arriba
+     a abajo, como en la referencia, sin llegar a competir con la cifra */
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--c) 20%, transparent) 0%, transparent 62%),
+    radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--c) 12%, transparent), transparent 60%);
+}
+/* Filo superior del color de la medida: identifica la tarjeta de un vistazo
+   incluso en blanco y negro, porque tambien cambia de posicion visual. */
+.metric-card::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--c), color-mix(in srgb, var(--c) 12%, transparent));
+  opacity: .85;
+}
+.metric-insignia {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 40%, transparent),
+              0 0 16px -4px color-mix(in srgb, var(--c) 65%, transparent);
+}
+
+/* --- Aura por seccion ---------------------------------------------------
+   Cada seccion trae su propio ambiente de color detras del contenido, para
+   que se note que cambiaste de sitio sin tener que leer la barra lateral. */
+.panel-seccion { position: relative; }
+.panel-seccion::before {
+  content: '';
+  position: absolute; inset: -40px -30px; z-index: -1;
+  pointer-events: none; opacity: .85;
+  background: var(--aura, none);
+}
+.panel-seccion[data-seccion="video"]    { --aura: radial-gradient(60% 50% at 14% 6%, rgb(34 211 238 / .13), transparent 68%); }
+.panel-seccion[data-seccion="resumen"]  { --aura: radial-gradient(58% 46% at 8% 0%, rgb(34 211 238 / .12), transparent 66%),
+                                                   radial-gradient(52% 44% at 96% 12%, rgb(244 114 182 / .10), transparent 66%); }
+.panel-seccion[data-seccion="zonas"]    { --aura: radial-gradient(56% 48% at 92% 4%, rgb(167 139 250 / .16), transparent 68%),
+                                                   radial-gradient(48% 40% at 4% 40%, rgb(34 211 238 / .10), transparent 68%); }
+.panel-seccion[data-seccion="mapa"]     { --aura: radial-gradient(62% 52% at 50% 0%, rgb(99 102 241 / .18), transparent 70%),
+                                                   radial-gradient(46% 40% at 6% 88%, rgb(244 114 182 / .10), transparent 70%); }
+.panel-seccion[data-seccion="reportes"] { --aura: radial-gradient(58% 46% at 6% 4%, rgb(251 191 36 / .12), transparent 66%),
+                                                   radial-gradient(50% 44% at 94% 70%, rgb(167 139 250 / .13), transparent 68%); }
+
+/* --- Barra lateral: el elemento activo respira color --------------------
+   El filo del activo recorre cian -> violeta -> rosa y vuelve. Es el UNICO
+   movimiento perpetuo de la interfaz, dura 9 s por vuelta y no esta encima
+   de ningun dato: marca donde estas parado, nada mas. */
+.nav-item-activo::before { animation: navFilo .28s var(--ease-out) both, navColor 9s linear 0.3s infinite; }
+.nav-item-activo .nav-item-icono { animation: navColorSuave 9s linear infinite; }
+@keyframes navColor {
+  0%   { background: #22D3EE; box-shadow: 0 0 12px 0 rgb(34 211 238 / .8); }
+  33%  { background: #A78BFA; box-shadow: 0 0 12px 0 rgb(167 139 250 / .8); }
+  66%  { background: #F472B6; box-shadow: 0 0 12px 0 rgb(244 114 182 / .8); }
+  100% { background: #22D3EE; box-shadow: 0 0 12px 0 rgb(34 211 238 / .8); }
+}
+@keyframes navColorSuave {
+  0%   { color: #22D3EE; background: rgb(34 211 238 / .14); }
+  33%  { color: #A78BFA; background: rgb(167 139 250 / .14); }
+  66%  { color: #F472B6; background: rgb(244 114 182 / .14); }
+  100% { color: #22D3EE; background: rgb(34 211 238 / .14); }
+}
+@media (max-width: 1023px) {
+  .nav-item-activo::before { animation: navColor 9s linear infinite; }
+}
+
+/* --- La firma del equipo: solo letras, sin bloque de color -------------- */
+.marca-equipo, .portada-firma {
+  background: linear-gradient(96deg, #22D3EE 0%, #A78BFA 52%, #F472B6 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #A78BFA;               /* respaldo si el recorte por texto falla */
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+/* El bloque rojo se retiro: ahora la firma son las letras y nada mas. */
+.portada-firma {
+  display: inline-block;
+  background-color: transparent;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 15px;
+}
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .marca-equipo, .portada-firma { -webkit-text-fill-color: #A78BFA; background: none; }
+}
+
+/* En papel nada de auras ni brillos: gastan tinta y no aportan. */
+@media print {
+  .panel-seccion::before { display: none !important; }
+  .metric-card::before, .metric-card::after { display: none !important; }
+  .nav-item-activo::before { animation: none !important; }
+  .marca-equipo { -webkit-text-fill-color: #0B1220 !important; background: none !important; }
+}
+
+/* Destape temporal para exportar el reporte: lo pone y lo quita
+   exportarReportePDF() (js/app.js) alrededor de window.print(). Se hace en
+   PANTALLA, no solo en @media print, porque el lienzo del mapa de calor no
+   viajaba al PDF si su seccion estaba oculta al momento de imprimir. */
+body.destapar-secciones .panel-seccion { display: block !important; animation: none !important; margin-bottom: 1rem; }
+
+/* ==========================================================================
+   10. CONSTELACION DE FONDO
+   ==========================================================================
+   La retickula de nodos y lineas que se ve por detras de todo el panel.
+
+   Es un SVG ESTATICO incrustado aqui, no el <canvas> animado que habia
+   antes (js/particulas.js, borrado): aquel recorria un bucle de
+   requestAnimationFrame permanente comparando cada particula contra todas
+   las demas -coste O(n^2) por cuadro- mientras la pestana estuviera
+   abierta. Esto se dibuja UNA vez, lo cachea el navegador y no gasta nada.
+   Mismo aspecto, sin el coste ni el movimiento encima de los datos.
+
+   La mascara lo deja fuerte en los bordes y lo desvanece en el centro, que
+   es justo por donde va el contenido: se ve el fondo sin que compita con
+   ninguna cifra. La semilla del generador es fija, asi que el patron es
+   siempre el mismo y no "salta" entre recargas.
+   ========================================================================== */
+.app-bg::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='720' viewBox='0 0 900 720'><defs><filter id='g' x='-60%25' y='-60%25' width='220%25' height='220%25'><feGaussianBlur stdDeviation='5'/></filter></defs><g stroke='%232E6C9E' stroke-opacity='.17' stroke-width='1' fill='none'><line x1='219' y1='137' x2='102' y2='116'/><line x1='219' y1='137' x2='268' y2='27'/><line x1='219' y1='137' x2='387' y2='133'/><line x1='219' y1='137' x2='167' y2='254'/><line x1='219' y1='137' x2='290' y2='236'/><line x1='219' y1='137' x2='360' y2='32'/><line x1='563' y1='253' x2='515' y2='400'/><line x1='563' y1='253' x2='528' y2='142'/><line x1='563' y1='253' x2='603' y2='408'/><line x1='563' y1='253' x2='663' y2='242'/><line x1='563' y1='253' x2='478' y2='296'/><line x1='563' y1='253' x2='722' y2='317'/><line x1='436' y1='703' x2='371' y2='625'/><line x1='436' y1='703' x2='572' y2='711'/><line x1='371' y1='625' x2='216' y2='701'/><line x1='371' y1='625' x2='272' y2='608'/><line x1='201' y1='543' x2='107' y2='617'/><line x1='201' y1='543' x2='216' y2='701'/><line x1='201' y1='543' x2='163' y2='407'/><line x1='201' y1='543' x2='272' y2='608'/><line x1='201' y1='543' x2='287' y2='463'/><line x1='658' y1='650' x2='784' y2='565'/><line x1='658' y1='650' x2='827' y2='646'/><line x1='658' y1='650' x2='589' y2='573'/><line x1='658' y1='650' x2='572' y2='711'/><line x1='748' y1='191' x2='845' y2='214'/><line x1='748' y1='191' x2='845' y2='319'/><line x1='748' y1='191' x2='873' y2='123'/><line x1='748' y1='191' x2='707' y2='75'/><line x1='748' y1='191' x2='663' y2='242'/><line x1='748' y1='191' x2='800' y2='71'/><line x1='748' y1='191' x2='722' y2='317'/><line x1='107' y1='617' x2='216' y2='701'/><line x1='107' y1='617' x2='272' y2='608'/><line x1='107' y1='617' x2='19' y2='522'/><line x1='107' y1='617' x2='23' y2='665'/><line x1='216' y1='701' x2='272' y2='608'/><line x1='102' y1='116' x2='34' y2='17'/><line x1='102' y1='116' x2='167' y2='254'/><line x1='102' y1='116' x2='40' y2='202'/><line x1='268' y1='27' x2='387' y2='133'/><line x1='268' y1='27' x2='360' y2='32'/><line x1='845' y1='214' x2='845' y2='319'/><line x1='845' y1='214' x2='873' y2='123'/><line x1='845' y1='214' x2='800' y2='71'/><line x1='845' y1='214' x2='722' y2='317'/><line x1='515' y1='400' x2='603' y2='408'/><line x1='515' y1='400' x2='378' y2='320'/><line x1='515' y1='400' x2='514' y2='508'/><line x1='515' y1='400' x2='478' y2='296'/><line x1='515' y1='400' x2='385' y2='425'/><line x1='528' y1='142' x2='387' y2='133'/><line x1='528' y1='142' x2='663' y2='242'/><line x1='528' y1='142' x2='478' y2='296'/><line x1='528' y1='142' x2='514' y2='39'/><line x1='387' y1='133' x2='290' y2='236'/><line x1='387' y1='133' x2='514' y2='39'/><line x1='387' y1='133' x2='360' y2='32'/><line x1='603' y1='408' x2='514' y2='508'/><line x1='603' y1='408' x2='663' y2='242'/><line x1='603' y1='408' x2='589' y2='573'/><line x1='603' y1='408' x2='478' y2='296'/><line x1='603' y1='408' x2='722' y2='317'/><line x1='845' y1='319' x2='780' y2='389'/><line x1='845' y1='319' x2='896' y2='449'/><line x1='845' y1='319' x2='722' y2='317'/><line x1='892' y1='541' x2='784' y2='565'/><line x1='892' y1='541' x2='827' y2='646'/><line x1='892' y1='541' x2='896' y2='449'/><line x1='784' y1='565' x2='827' y2='646'/><line x1='784' y1='565' x2='780' y2='389'/><line x1='784' y1='565' x2='896' y2='449'/><line x1='52' y1='320' x2='167' y2='254'/><line x1='52' y1='320' x2='163' y2='407'/><line x1='52' y1='320' x2='40' y2='202'/><line x1='52' y1='320' x2='214' y2='333'/><line x1='378' y1='320' x2='290' y2='236'/><line x1='378' y1='320' x2='287' y2='463'/><line x1='378' y1='320' x2='478' y2='296'/><line x1='378' y1='320' x2='385' y2='425'/><line x1='378' y1='320' x2='214' y2='333'/><line x1='167' y1='254' x2='163' y2='407'/><line x1='167' y1='254' x2='40' y2='202'/><line x1='167' y1='254' x2='290' y2='236'/><line x1='167' y1='254' x2='214' y2='333'/><line x1='163' y1='407' x2='287' y2='463'/><line x1='163' y1='407' x2='214' y2='333'/><line x1='272' y1='608' x2='287' y2='463'/><line x1='290' y1='236' x2='214' y2='333'/><line x1='873' y1='123' x2='707' y2='75'/><line x1='873' y1='123' x2='800' y2='71'/><line x1='19' y1='522' x2='23' y2='665'/><line x1='780' y1='389' x2='896' y2='449'/><line x1='780' y1='389' x2='722' y2='317'/><line x1='287' y1='463' x2='385' y2='425'/><line x1='287' y1='463' x2='214' y2='333'/><line x1='514' y1='508' x2='589' y2='573'/><line x1='514' y1='508' x2='385' y2='425'/><line x1='707' y1='75' x2='663' y2='242'/><line x1='707' y1='75' x2='800' y2='71'/><line x1='663' y1='242' x2='722' y2='317'/><line x1='589' y1='573' x2='572' y2='711'/><line x1='478' y1='296' x2='385' y2='425'/><line x1='514' y1='39' x2='360' y2='32'/></g><circle cx='219' cy='137' r='4.8' fill='%230891B2' opacity='.30' filter='url%28%23g%29'/><circle cx='219' cy='137' r='1.8' fill='%230891B2' opacity='.85'/><circle cx='563' cy='253' r='1.6' fill='%232E6C9E' opacity='.30'/><circle cx='436' cy='703' r='3.5' fill='%232E6C9E' opacity='.30'/><circle cx='371' cy='625' r='3.3' fill='%232E6C9E' opacity='.30'/><circle cx='201' cy='543' r='2.9' fill='%232E6C9E' opacity='.30'/><circle cx='658' cy='650' r='1.7' fill='%232E6C9E' opacity='.30'/><circle cx='748' cy='191' r='3.4' fill='%232E6C9E' opacity='.30'/><circle cx='107' cy='617' r='8.3' fill='%237C3AED' opacity='.30' filter='url%28%23g%29'/><circle cx='107' cy='617' r='3.2' fill='%237C3AED' opacity='.85'/><circle cx='216' cy='701' r='3.0' fill='%232E6C9E' opacity='.30'/><circle cx='102' cy='116' r='2.0' fill='%232E6C9E' opacity='.30'/><circle cx='268' cy='27' r='2.2' fill='%232E6C9E' opacity='.30'/><circle cx='845' cy='214' r='2.5' fill='%232E6C9E' opacity='.30'/><circle cx='515' cy='400' r='2.6' fill='%232E6C9E' opacity='.30'/><circle cx='528' cy='142' r='2.2' fill='%232E6C9E' opacity='.30'/><circle cx='387' cy='133' r='8.2' fill='%23DB2777' opacity='.30' filter='url%28%23g%29'/><circle cx='387' cy='133' r='3.1' fill='%23DB2777' opacity='.85'/><circle cx='603' cy='408' r='2.9' fill='%232E6C9E' opacity='.30'/><circle cx='845' cy='319' r='1.9' fill='%232E6C9E' opacity='.30'/><circle cx='34' cy='17' r='2.4' fill='%232E6C9E' opacity='.30'/><circle cx='892' cy='541' r='2.7' fill='%232E6C9E' opacity='.30'/><circle cx='784' cy='565' r='2.0' fill='%232E6C9E' opacity='.30'/><circle cx='52' cy='320' r='2.3' fill='%232E6C9E' opacity='.30'/><circle cx='378' cy='320' r='6.0' fill='%230891B2' opacity='.30' filter='url%28%23g%29'/><circle cx='378' cy='320' r='2.3' fill='%230891B2' opacity='.85'/><circle cx='167' cy='254' r='1.7' fill='%232E6C9E' opacity='.30'/><circle cx='827' cy='646' r='2.0' fill='%232E6C9E' opacity='.30'/><circle cx='163' cy='407' r='2.2' fill='%232E6C9E' opacity='.30'/><circle cx='272' cy='608' r='1.7' fill='%232E6C9E' opacity='.30'/><circle cx='40' cy='202' r='2.9' fill='%232E6C9E' opacity='.30'/><circle cx='290' cy='236' r='1.6' fill='%232E6C9E' opacity='.30'/><circle cx='873' cy='123' r='7.6' fill='%237C3AED' opacity='.30' filter='url%28%23g%29'/><circle cx='873' cy='123' r='2.9' fill='%237C3AED' opacity='.85'/><circle cx='19' cy='522' r='2.3' fill='%232E6C9E' opacity='.30'/><circle cx='780' cy='389' r='2.9' fill='%232E6C9E' opacity='.30'/><circle cx='287' cy='463' r='2.2' fill='%232E6C9E' opacity='.30'/><circle cx='23' cy='665' r='2.6' fill='%232E6C9E' opacity='.30'/><circle cx='514' cy='508' r='1.9' fill='%232E6C9E' opacity='.30'/><circle cx='707' cy='75' r='2.9' fill='%232E6C9E' opacity='.30'/><circle cx='663' cy='242' r='6.7' fill='%23DB2777' opacity='.30' filter='url%28%23g%29'/><circle cx='663' cy='242' r='2.6' fill='%23DB2777' opacity='.85'/><circle cx='800' cy='71' r='2.4' fill='%232E6C9E' opacity='.30'/><circle cx='896' cy='449' r='1.8' fill='%232E6C9E' opacity='.30'/><circle cx='589' cy='573' r='2.6' fill='%232E6C9E' opacity='.30'/><circle cx='478' cy='296' r='1.9' fill='%232E6C9E' opacity='.30'/><circle cx='514' cy='39' r='2.7' fill='%232E6C9E' opacity='.30'/><circle cx='572' cy='711' r='3.4' fill='%232E6C9E' opacity='.30'/><circle cx='385' cy='425' r='4.8' fill='%230891B2' opacity='.30' filter='url%28%23g%29'/><circle cx='385' cy='425' r='1.8' fill='%230891B2' opacity='.85'/><circle cx='214' cy='333' r='3.1' fill='%232E6C9E' opacity='.30'/><circle cx='722' cy='317' r='2.9' fill='%232E6C9E' opacity='.30'/><circle cx='360' cy='32' r='2.1' fill='%232E6C9E' opacity='.30'/></svg>");
+  background-repeat: repeat;
+  background-size: 780px 624px;
+  opacity: .85;
+  /* Fuerte en los bordes, tenue -no ausente- en la franja central por donde
+     va el contenido: se ve la retickula sin que compita con ninguna cifra. */
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, rgb(0 0 0 / .22) 32%, rgb(0 0 0 / .22) 68%, #000 100%);
+          mask-image: linear-gradient(90deg, #000 0%, rgb(0 0 0 / .22) 32%, rgb(0 0 0 / .22) 68%, #000 100%);
+}
+html.dark .app-bg::after {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='720' viewBox='0 0 900 720'><defs><filter id='g' x='-60%25' y='-60%25' width='220%25' height='220%25'><feGaussianBlur stdDeviation='5'/></filter></defs><g stroke='%239FD8FF' stroke-opacity='.20' stroke-width='1' fill='none'><line x1='219' y1='137' x2='102' y2='116'/><line x1='219' y1='137' x2='268' y2='27'/><line x1='219' y1='137' x2='387' y2='133'/><line x1='219' y1='137' x2='167' y2='254'/><line x1='219' y1='137' x2='290' y2='236'/><line x1='219' y1='137' x2='360' y2='32'/><line x1='563' y1='253' x2='515' y2='400'/><line x1='563' y1='253' x2='528' y2='142'/><line x1='563' y1='253' x2='603' y2='408'/><line x1='563' y1='253' x2='663' y2='242'/><line x1='563' y1='253' x2='478' y2='296'/><line x1='563' y1='253' x2='722' y2='317'/><line x1='436' y1='703' x2='371' y2='625'/><line x1='436' y1='703' x2='572' y2='711'/><line x1='371' y1='625' x2='216' y2='701'/><line x1='371' y1='625' x2='272' y2='608'/><line x1='201' y1='543' x2='107' y2='617'/><line x1='201' y1='543' x2='216' y2='701'/><line x1='201' y1='543' x2='163' y2='407'/><line x1='201' y1='543' x2='272' y2='608'/><line x1='201' y1='543' x2='287' y2='463'/><line x1='658' y1='650' x2='784' y2='565'/><line x1='658' y1='650' x2='827' y2='646'/><line x1='658' y1='650' x2='589' y2='573'/><line x1='658' y1='650' x2='572' y2='711'/><line x1='748' y1='191' x2='845' y2='214'/><line x1='748' y1='191' x2='845' y2='319'/><line x1='748' y1='191' x2='873' y2='123'/><line x1='748' y1='191' x2='707' y2='75'/><line x1='748' y1='191' x2='663' y2='242'/><line x1='748' y1='191' x2='800' y2='71'/><line x1='748' y1='191' x2='722' y2='317'/><line x1='107' y1='617' x2='216' y2='701'/><line x1='107' y1='617' x2='272' y2='608'/><line x1='107' y1='617' x2='19' y2='522'/><line x1='107' y1='617' x2='23' y2='665'/><line x1='216' y1='701' x2='272' y2='608'/><line x1='102' y1='116' x2='34' y2='17'/><line x1='102' y1='116' x2='167' y2='254'/><line x1='102' y1='116' x2='40' y2='202'/><line x1='268' y1='27' x2='387' y2='133'/><line x1='268' y1='27' x2='360' y2='32'/><line x1='845' y1='214' x2='845' y2='319'/><line x1='845' y1='214' x2='873' y2='123'/><line x1='845' y1='214' x2='800' y2='71'/><line x1='845' y1='214' x2='722' y2='317'/><line x1='515' y1='400' x2='603' y2='408'/><line x1='515' y1='400' x2='378' y2='320'/><line x1='515' y1='400' x2='514' y2='508'/><line x1='515' y1='400' x2='478' y2='296'/><line x1='515' y1='400' x2='385' y2='425'/><line x1='528' y1='142' x2='387' y2='133'/><line x1='528' y1='142' x2='663' y2='242'/><line x1='528' y1='142' x2='478' y2='296'/><line x1='528' y1='142' x2='514' y2='39'/><line x1='387' y1='133' x2='290' y2='236'/><line x1='387' y1='133' x2='514' y2='39'/><line x1='387' y1='133' x2='360' y2='32'/><line x1='603' y1='408' x2='514' y2='508'/><line x1='603' y1='408' x2='663' y2='242'/><line x1='603' y1='408' x2='589' y2='573'/><line x1='603' y1='408' x2='478' y2='296'/><line x1='603' y1='408' x2='722' y2='317'/><line x1='845' y1='319' x2='780' y2='389'/><line x1='845' y1='319' x2='896' y2='449'/><line x1='845' y1='319' x2='722' y2='317'/><line x1='892' y1='541' x2='784' y2='565'/><line x1='892' y1='541' x2='827' y2='646'/><line x1='892' y1='541' x2='896' y2='449'/><line x1='784' y1='565' x2='827' y2='646'/><line x1='784' y1='565' x2='780' y2='389'/><line x1='784' y1='565' x2='896' y2='449'/><line x1='52' y1='320' x2='167' y2='254'/><line x1='52' y1='320' x2='163' y2='407'/><line x1='52' y1='320' x2='40' y2='202'/><line x1='52' y1='320' x2='214' y2='333'/><line x1='378' y1='320' x2='290' y2='236'/><line x1='378' y1='320' x2='287' y2='463'/><line x1='378' y1='320' x2='478' y2='296'/><line x1='378' y1='320' x2='385' y2='425'/><line x1='378' y1='320' x2='214' y2='333'/><line x1='167' y1='254' x2='163' y2='407'/><line x1='167' y1='254' x2='40' y2='202'/><line x1='167' y1='254' x2='290' y2='236'/><line x1='167' y1='254' x2='214' y2='333'/><line x1='163' y1='407' x2='287' y2='463'/><line x1='163' y1='407' x2='214' y2='333'/><line x1='272' y1='608' x2='287' y2='463'/><line x1='290' y1='236' x2='214' y2='333'/><line x1='873' y1='123' x2='707' y2='75'/><line x1='873' y1='123' x2='800' y2='71'/><line x1='19' y1='522' x2='23' y2='665'/><line x1='780' y1='389' x2='896' y2='449'/><line x1='780' y1='389' x2='722' y2='317'/><line x1='287' y1='463' x2='385' y2='425'/><line x1='287' y1='463' x2='214' y2='333'/><line x1='514' y1='508' x2='589' y2='573'/><line x1='514' y1='508' x2='385' y2='425'/><line x1='707' y1='75' x2='663' y2='242'/><line x1='707' y1='75' x2='800' y2='71'/><line x1='663' y1='242' x2='722' y2='317'/><line x1='589' y1='573' x2='572' y2='711'/><line x1='478' y1='296' x2='385' y2='425'/><line x1='514' y1='39' x2='360' y2='32'/></g><circle cx='219' cy='137' r='4.8' fill='%2322D3EE' opacity='.30' filter='url%28%23g%29'/><circle cx='219' cy='137' r='1.8' fill='%2322D3EE' opacity='.85'/><circle cx='563' cy='253' r='1.6' fill='%239FD8FF' opacity='.42'/><circle cx='436' cy='703' r='3.5' fill='%239FD8FF' opacity='.42'/><circle cx='371' cy='625' r='3.3' fill='%239FD8FF' opacity='.42'/><circle cx='201' cy='543' r='2.9' fill='%239FD8FF' opacity='.42'/><circle cx='658' cy='650' r='1.7' fill='%239FD8FF' opacity='.42'/><circle cx='748' cy='191' r='3.4' fill='%239FD8FF' opacity='.42'/><circle cx='107' cy='617' r='8.3' fill='%23A78BFA' opacity='.30' filter='url%28%23g%29'/><circle cx='107' cy='617' r='3.2' fill='%23A78BFA' opacity='.85'/><circle cx='216' cy='701' r='3.0' fill='%239FD8FF' opacity='.42'/><circle cx='102' cy='116' r='2.0' fill='%239FD8FF' opacity='.42'/><circle cx='268' cy='27' r='2.2' fill='%239FD8FF' opacity='.42'/><circle cx='845' cy='214' r='2.5' fill='%239FD8FF' opacity='.42'/><circle cx='515' cy='400' r='2.6' fill='%239FD8FF' opacity='.42'/><circle cx='528' cy='142' r='2.2' fill='%239FD8FF' opacity='.42'/><circle cx='387' cy='133' r='8.2' fill='%23F472B6' opacity='.30' filter='url%28%23g%29'/><circle cx='387' cy='133' r='3.1' fill='%23F472B6' opacity='.85'/><circle cx='603' cy='408' r='2.9' fill='%239FD8FF' opacity='.42'/><circle cx='845' cy='319' r='1.9' fill='%239FD8FF' opacity='.42'/><circle cx='34' cy='17' r='2.4' fill='%239FD8FF' opacity='.42'/><circle cx='892' cy='541' r='2.7' fill='%239FD8FF' opacity='.42'/><circle cx='784' cy='565' r='2.0' fill='%239FD8FF' opacity='.42'/><circle cx='52' cy='320' r='2.3' fill='%239FD8FF' opacity='.42'/><circle cx='378' cy='320' r='6.0' fill='%2322D3EE' opacity='.30' filter='url%28%23g%29'/><circle cx='378' cy='320' r='2.3' fill='%2322D3EE' opacity='.85'/><circle cx='167' cy='254' r='1.7' fill='%239FD8FF' opacity='.42'/><circle cx='827' cy='646' r='2.0' fill='%239FD8FF' opacity='.42'/><circle cx='163' cy='407' r='2.2' fill='%239FD8FF' opacity='.42'/><circle cx='272' cy='608' r='1.7' fill='%239FD8FF' opacity='.42'/><circle cx='40' cy='202' r='2.9' fill='%239FD8FF' opacity='.42'/><circle cx='290' cy='236' r='1.6' fill='%239FD8FF' opacity='.42'/><circle cx='873' cy='123' r='7.6' fill='%23A78BFA' opacity='.30' filter='url%28%23g%29'/><circle cx='873' cy='123' r='2.9' fill='%23A78BFA' opacity='.85'/><circle cx='19' cy='522' r='2.3' fill='%239FD8FF' opacity='.42'/><circle cx='780' cy='389' r='2.9' fill='%239FD8FF' opacity='.42'/><circle cx='287' cy='463' r='2.2' fill='%239FD8FF' opacity='.42'/><circle cx='23' cy='665' r='2.6' fill='%239FD8FF' opacity='.42'/><circle cx='514' cy='508' r='1.9' fill='%239FD8FF' opacity='.42'/><circle cx='707' cy='75' r='2.9' fill='%239FD8FF' opacity='.42'/><circle cx='663' cy='242' r='6.7' fill='%23F472B6' opacity='.30' filter='url%28%23g%29'/><circle cx='663' cy='242' r='2.6' fill='%23F472B6' opacity='.85'/><circle cx='800' cy='71' r='2.4' fill='%239FD8FF' opacity='.42'/><circle cx='896' cy='449' r='1.8' fill='%239FD8FF' opacity='.42'/><circle cx='589' cy='573' r='2.6' fill='%239FD8FF' opacity='.42'/><circle cx='478' cy='296' r='1.9' fill='%239FD8FF' opacity='.42'/><circle cx='514' cy='39' r='2.7' fill='%239FD8FF' opacity='.42'/><circle cx='572' cy='711' r='3.4' fill='%239FD8FF' opacity='.42'/><circle cx='385' cy='425' r='4.8' fill='%2322D3EE' opacity='.30' filter='url%28%23g%29'/><circle cx='385' cy='425' r='1.8' fill='%2322D3EE' opacity='.85'/><circle cx='214' cy='333' r='3.1' fill='%239FD8FF' opacity='.42'/><circle cx='722' cy='317' r='2.9' fill='%239FD8FF' opacity='.42'/><circle cx='360' cy='32' r='2.1' fill='%239FD8FF' opacity='.42'/></svg>");
+  opacity: 1;
+}
+/* En papel no se imprime: son lineas finas que solo ensucian la hoja. */
+@media print { .app-bg::after { display: none !important; } }

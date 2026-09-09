@@ -11,7 +11,7 @@ function renderSummaryCards(bundle = bundleDe(), idPrefix = '') {
         <div class="h-7 skeleton rounded w-16"></div>
         <div class="w-full bg-[#F3F2EF] h-1 rounded-full"></div>
       </div>`).join('');
-    return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">${skeletons}</div>`;
+    return `<div class="grid gap-3 sm:gap-4 ${idPrefix ? 'grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}">${skeletons}</div>`;
   }
 
   const d = bundle.detail;
@@ -28,13 +28,17 @@ function renderSummaryCards(bundle = bundleDe(), idPrefix = '') {
       <h2 id="kpi-summary-heading${idPrefix}" class="text-[10px] font-bold text-[#787774] uppercase tracking-[0.1em]">Resumen General del Video</h2>
       <span class="text-[11px] text-[#787774]">Grabación: <code class="font-mono text-[#111111]">${esc(d.video_id)}</code></span>
     </div>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-      ${metricCard({ id: mid('people-count'), title: 'Tráfico Total', value: formatNumber(d.people_count), countTarget: d.people_count, subtext: 'personas detectadas', badge: '100% Anónimo', tone: 'neutral', barColor: '#1F6C9F', progressPercent: d.people_count > 0 ? 65 : 0, tooltip: 'Conteo de identificadores de seguimiento únicos (track_id temporales) detectados en el área del pasillo.' })}
-      ${metricCard({ id: mid('interaction-count'), title: 'Interacciones', value: formatNumber(d.interaction_count), countTarget: d.interaction_count, subtext: `${interactionRateVal}% rate`, badge: `${d.people_count > 0 ? (d.interaction_count / d.people_count).toFixed(1) : '0'} / pers`, tone: 'info', barColor: '#1F6C9F', progressPercent: interactionRateVal, tooltip: 'Eventos donde un cliente se detuvo dentro de la zona de atención de la góndola.' })}
-      ${metricCard({ id: mid('pick-up-count'), title: 'Pick-ups', value: formatNumber(d.pick_up_count), countTarget: d.pick_up_count, subtext: 'productos tomados', badge: 'Extracción', tone: 'accent', barColor: '#1F6C9F', progressPercent: pickUpProgress, tooltip: 'Veces que la mano de un cliente tomó un producto de la góndola según el modelo de interacción.' })}
-      ${metricCard({ id: mid('put-back-count'), title: 'Put-backs', value: formatNumber(d.put_back_count), countTarget: d.put_back_count, subtext: 'devoluciones', badge: d.put_back_count === 0 ? '0 devueltos' : `${d.put_back_count} reposiciones`, tone: d.put_back_count === 0 ? 'accent' : 'danger', barColor: '#9F2F2D', progressPercent: putBackProgress, tooltip: 'Veces que un producto previamente levantado fue colocado nuevamente en la góndola.' })}
-      ${metricCard({ id: mid('rejection-rate'), title: 'Tasa Rechazo', value: rejection.label, subtext: rejection.rate === null ? 'sin tomas' : 'devolución', badge: rejection.rate === null ? 'N/A' : (rejection.rate > 0.3 ? 'Atención' : 'Óptimo'), tone: rejection.rate === null ? 'neutral' : (rejection.rate > 0.3 ? 'danger' : 'accent'), barColor: rejection.rate && rejection.rate > 0.3 ? '#9F2F2D' : '#346538', progressPercent: rejection.rate ? Math.round(rejection.rate * 100) : 0, tooltip: 'Relación de productos devueltos frente al total de productos tomados. Un valor alto sugiere problemas de precio, empaque o fecha de caducidad.' })}
-      ${metricCard({ id: mid('dwell-time'), title: 'Permanencia Media', value: formatDwellTime(d.average_dwell_time_s), subtext: 'avg dwell', badge: 'Atención', tone: 'warning', highlight: true, barColor: '#B8790B', progressPercent: dwellProgress, tooltip: 'Tiempo promedio en segundos que las personas permanecieron frente al expositor durante su visita.' })}
+    <!-- En la vista de comparacion cada columna ocupa media pantalla: seis
+         tarjetas ahi dejaban ~110px por tarjeta y los titulos se partian
+         ("PICK-/UPS", "TASA / RECHAZO") con los subtextos cortados. Con
+         idPrefix (o sea, dentro de comparar) se baja a 2-3 columnas. -->
+    <div class="kpi-grid grid gap-3 sm:gap-4 ${idPrefix ? 'grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}">
+      ${metricCard({ id: mid('people-count'), icono: 'users-three', title: 'Tráfico Total', value: formatNumber(d.people_count), countTarget: d.people_count, subtext: 'personas detectadas', badge: '100% Anónimo', tone: 'neutral', barColor: '#1F6C9F', progressPercent: d.people_count > 0 ? 65 : 0, tooltip: 'Conteo de identificadores de seguimiento únicos (track_id temporales) detectados en el área del pasillo.' })}
+      ${metricCard({ id: mid('interaction-count'), icono: 'chat-circle-dots', title: 'Interacciones', value: formatNumber(d.interaction_count), countTarget: d.interaction_count, subtext: `${interactionRateVal}% rate`, badge: `${d.people_count > 0 ? (d.interaction_count / d.people_count).toFixed(1) : '0'} / pers`, tone: 'info', barColor: '#1F6C9F', progressPercent: interactionRateVal, tooltip: 'Eventos donde un cliente se detuvo dentro de la zona de atención de la góndola.' })}
+      ${metricCard({ id: mid('pick-up-count'), icono: 'hand-grabbing', title: 'Pick-ups', value: formatNumber(d.pick_up_count), countTarget: d.pick_up_count, subtext: 'productos tomados', badge: 'Extracción', tone: 'accent', barColor: '#1F6C9F', progressPercent: pickUpProgress, tooltip: 'Veces que la mano de un cliente tomó un producto de la góndola según el modelo de interacción.' })}
+      ${metricCard({ id: mid('put-back-count'), icono: 'arrow-u-down-left', title: 'Put-backs', value: formatNumber(d.put_back_count), countTarget: d.put_back_count, subtext: 'devoluciones', badge: d.put_back_count === 0 ? '0 devueltos' : `${d.put_back_count} reposiciones`, tone: d.put_back_count === 0 ? 'accent' : 'danger', barColor: '#9F2F2D', progressPercent: putBackProgress, tooltip: 'Veces que un producto previamente levantado fue colocado nuevamente en la góndola.' })}
+      ${metricCard({ id: mid('rejection-rate'), icono: 'gauge', title: 'Tasa Rechazo', value: rejection.label, subtext: rejection.rate === null ? 'sin tomas' : 'devolución', badge: rejection.rate === null ? 'N/A' : (rejection.rate > 0.3 ? 'Atención' : 'Óptimo'), tone: rejection.rate === null ? 'neutral' : (rejection.rate > 0.3 ? 'danger' : 'accent'), barColor: rejection.rate && rejection.rate > 0.3 ? '#9F2F2D' : '#346538', progressPercent: rejection.rate ? Math.round(rejection.rate * 100) : 0, tooltip: 'Relación de productos devueltos frente al total de productos tomados. Un valor alto sugiere problemas de precio, empaque o fecha de caducidad.' })}
+      ${metricCard({ id: mid('dwell-time'), icono: 'timer', title: 'Permanencia Media', value: formatDwellTime(d.average_dwell_time_s), subtext: 'avg dwell', badge: 'Atención', tone: 'warning', highlight: true, barColor: '#B8790B', progressPercent: dwellProgress, tooltip: 'Tiempo promedio en segundos que las personas permanecieron frente al expositor durante su visita.' })}
     </div>
   </section>`;
 }
@@ -292,14 +296,10 @@ const HEATMAP_ESTILOS = {
   },
 };
 
-// Intervalo de la animacion "viva" por contenedor (ver mas abajo): un
-// mapa nombre-de-contenedor -> id de setInterval, para poder apagar el de
-// una llamada anterior antes de prender uno nuevo. Sin esto, cada
-// render() -que llama a pintarHeatmap() de nuevo, ver app.js- dejaria un
-// setInterval viejo corriendo para siempre sobre un <canvas> que ya no
-// existe (pintarHeatmap borra el contenedor entero con
-// container.innerHTML = '' en cada llamada).
-const HEATMAP_TIMERS = {};
+// Ultimos datos pintados por contenedor, para saber si el mapa cambio de
+// verdad o solo se volvio a renderizar la pantalla (ver el barrido de
+// entrada mas abajo).
+const HUELLA_MAPA = {};
 
 // Pinta heatmap.js dentro de #<containerId>. Se llama despues de cada
 // render() (ver app.js), nunca durante: heatmap.js necesita medir el
@@ -308,7 +308,6 @@ const HEATMAP_TIMERS = {};
 // directamente) para poder pintar el mapa de CUALQUIER video -el
 // principal o los de la comparacion-, cada uno en su propio contenedor.
 function pintarHeatmap(containerId, positions) {
-  if (HEATMAP_TIMERS[containerId]) { clearInterval(HEATMAP_TIMERS[containerId]); delete HEATMAP_TIMERS[containerId]; }
   const container = document.getElementById(containerId);
   if (!container || typeof h337 === 'undefined') return;
   const frameWidth = Number(container.dataset.frameWidth);
@@ -349,20 +348,35 @@ function pintarHeatmap(containerId, positions) {
   const max = Math.max(1, ...data.map((d) => d.value));
   heatmap.setData({ max, data });
 
-  // "Vivo": cada punto flucti­a su intensidad por su cuenta (no toda la
-  // imagen escalando junta, que se ve mecanico) -como el parpadeo de una
-  // brasa-. Se re-jitterea el MISMO array de puntos cada ~200ms; nunca se
-  // recalcula desde `positions`, asi que la posicion de cada zona caliente
-  // no se mueve, solo su intensidad. Respeta prefers-reduced-motion, igual
-  // que el resto del dashboard (ver css/estilos.css).
-  const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!sinMovimiento && data.length) {
-    HEATMAP_TIMERS[containerId] = setInterval(() => {
-      if (!document.getElementById(containerId)) { clearInterval(HEATMAP_TIMERS[containerId]); delete HEATMAP_TIMERS[containerId]; return; }
-      const conJitter = data.map((d) => ({ x: d.x, y: d.y, value: Math.max(1, d.value * (0.7 + Math.random() * 0.6)) }));
-      heatmap.setData({ max, data: conJitter });
-    }, 220);
+  // Barrido de izquierda a derecha al pintar, con clip-path (no toca el
+  // diseno, asi que el navegador lo resuelve sin recalcular nada). Se
+  // dispara SOLO cuando cambian los datos de este contenedor, no en cada
+  // render(): repetirlo al abrir un modal o cambiar de tema seria un
+  // parpadeo constante encima del dato.
+  const huella = positions.length + 'x' + data.length;
+  if (HUELLA_MAPA[containerId] !== huella) {
+    HUELLA_MAPA[containerId] = huella;
+    container.classList.remove('revelar-mapa');
+    void container.offsetWidth; // reinicia la animacion si ya estaba puesta
+    container.classList.add('revelar-mapa');
   }
+
+  // El mapa se pinta UNA vez, con los valores medidos, y se queda quieto.
+  //
+  // Antes habia aqui una animacion "viva" (parpadeo tipo brasa): un
+  // setInterval cada 220ms que repintaba cada punto con
+  // `value * (0.7 + Math.random() * 0.6)`. Se retiro, y no por gusto
+  // visual: esa multiplicacion mostraba cada zona caliente con una
+  // intensidad al azar entre el 70% y el 130% de su valor real, cuatro
+  // veces por segundo. Quien miraba el mapa no estaba leyendo la
+  // medicion, estaba leyendo ruido encima de la medicion -en un sistema
+  // cuyo argumento entero es "medimos en vez de suponer", y delante de un
+  // jurado que puede preguntar precisamente por ese mapa.
+  //
+  // De paso desaparecen dos efectos colaterales: un temporizador
+  // permanente repintando un canvas entero mientras la pestana este
+  // abierta, y el bloqueo que ese temporizador causaba en cualquier
+  // herramienta que espere a que la pagina quede en reposo.
 }
 
 function renderZonesHeatmap(bundle = bundleDe()) {
@@ -468,7 +482,7 @@ function renderZonesHeatmap(bundle = bundleDe()) {
           <span>Menos</span><div class="w-24 h-2 rounded shrink-0" style="background:linear-gradient(90deg,#D6E8F5,#5D9BC9,#0B3B5C)"></div><span>Más</span>
         </div>
       </div>
-      <div class="grid gap-3.5 grid-cols-1 md:grid-cols-2 mt-3">${gondolas.map(gondolaCard).join('')}</div>
+      <div class="grid gap-3.5 mt-3 ${gondolas.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}">${gondolas.map(gondolaCard).join('')}</div>
     </div>
     ${renderRanking()}
   </div>`;
@@ -563,7 +577,7 @@ function renderInsights(bundle = bundleDe()) {
 
   return `
   <div class="bg-white rounded-xl border border-[#EAEAEA] p-4.5 shadow-xs space-y-3.5">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F2EF] pb-3">
+    <div class="flex flex-col gap-2.5 border-b border-[#F3F2EF] pb-3">
       <div class="flex items-center gap-2.5">
         <div class="w-7 h-7 rounded-lg bg-[#1F6C9F]/10 text-[#1F6C9F] flex items-center justify-center shrink-0">${icon('compass', 'w-4 h-4')}</div>
         <div>
@@ -571,7 +585,7 @@ function renderInsights(bundle = bundleDe()) {
           <p class="text-[11px] text-[#787774]">Síntesis ejecutiva de comportamiento para gerencia de tienda y planogramación</p>
         </div>
       </div>
-      <div class="inline-flex items-center gap-1.5 text-[11px] text-[#787774] bg-[#F7F6F3] px-2.5 py-1 rounded-md border border-[#EAEAEA]">
+      <div class="self-start inline-flex items-center gap-1.5 text-[11px] text-[#787774] bg-[#F7F6F3] px-2.5 py-1 rounded-md border border-[#EAEAEA]">
         ${icon('trending-up', 'w-3.5 h-3.5 text-[#1F6C9F]')}<span>Telemetría de video anónima</span>
       </div>
     </div>
@@ -603,7 +617,6 @@ function renderSidebar() {
       <div class="text-3xl sm:text-4xl font-bold mb-2 tracking-tight text-[#E5E3DE]">${rejectionRate}<span class="text-lg opacity-50 font-normal">%</span></div>
       <p class="text-xs text-[#A8A29E] leading-relaxed">${esc(rejectionDesc)}</p>
     </div>
-    <div class="absolute -right-4 -bottom-4 w-32 h-32 bg-[#1F6C9F] opacity-10 rounded-full pointer-events-none"></div>
   </div>
 
   <div class="bg-white p-5 rounded-xl border border-[#EAEAEA] shadow-xs space-y-4">

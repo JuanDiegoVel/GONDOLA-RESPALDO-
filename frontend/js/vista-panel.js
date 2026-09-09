@@ -38,67 +38,108 @@ function infoButton(titulo, texto) {
     title="${esc(texto)}" aria-label="¿De dónde sale este dato?">${icon('help-circle', 'w-3 h-3')}</button>`;
 }
 
+// Indicador de estado del backend. El punto es ESTATICO a proposito: no
+// parpadea ni late. El estado se comunica con color y etiqueta, que es
+// mas rapido de leer y no compite con los datos -el mismo criterio por el
+// que se quito el fondo de particulas-. El halo (box-shadow sin
+// desplazamiento) hace que el punto se lea como encendido sobre el lienzo
+// oscuro sin necesidad de movimiento.
+function statusDot(colorVar) {
+  return `<span class="w-2 h-2 rounded-full shrink-0" style="background:var(${colorVar});box-shadow:0 0 0 3px color-mix(in srgb, var(${colorVar}) 22%, transparent)"></span>`;
+}
+
 function renderHeader() {
   let statusHtml;
   if (state.useMockMode) {
-    statusHtml = `<div class="flex items-center gap-1.5">
-      <span class="w-2 h-2 rounded-full bg-[#956400]"></span>
-      <span class="font-semibold text-[#956400] text-[11px] tracking-wider uppercase">DEMO ACTIVA</span>
+    statusHtml = `<div class="flex items-center gap-2">
+      ${statusDot('--warn')}
+      <span class="font-bold text-[#956400] text-[11px] tracking-[0.12em] uppercase">Demo activa</span>
     </div>`;
   } else if (state.isCheckingHealth) {
-    statusHtml = `<div class="flex items-center gap-1.5">
+    statusHtml = `<div class="flex items-center gap-2">
       ${icon('refresh-cw', 'w-3 h-3 text-[#787774] animate-spin')}
-      <span class="text-[11px] font-medium text-[#787774]">VERIFICANDO</span>
+      <span class="text-[11px] font-bold text-[#787774] tracking-[0.12em] uppercase">Verificando</span>
     </div>`;
   } else if (state.isBackendHealthy) {
-    statusHtml = `<div class="flex items-center gap-1.5">
-      <div class="w-2 h-2 rounded-full bg-[#346538]"></div>
-      <span class="text-xs font-bold text-[#346538] tracking-wider uppercase">SISTEMA ONLINE</span>
+    statusHtml = `<div class="flex items-center gap-2">
+      ${statusDot('--success')}
+      <span class="text-[11px] font-bold text-[#346538] tracking-[0.12em] uppercase">Sistema online</span>
     </div>`;
   } else {
-    statusHtml = `<div class="flex items-center gap-1.5">
-      <div class="w-2 h-2 rounded-full bg-[#9F2F2D]"></div>
-      <span class="text-xs font-bold text-[#9F2F2D] tracking-wider uppercase">OFFLINE</span>
+    statusHtml = `<div class="flex items-center gap-2">
+      ${statusDot('--danger')}
+      <span class="text-[11px] font-bold text-[#9F2F2D] tracking-[0.12em] uppercase">Offline</span>
     </div>`;
   }
 
+  // Botones de icono de la barra: un solo vocabulario para los dos, para
+  // que no haya dos formas distintas de "boton de icono" en la misma
+  // esquina. 36px de lado: por debajo de eso deja de ser comodo en tactil.
+  const iconBtn = (accion, titulo, etiqueta, nombreIcono) => `
+    <button type="button" data-action="${accion}"
+            class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-[#57534E] hover:text-[#111111] hover:bg-[#EAEAEA]"
+            title="${esc(titulo)}" aria-label="${esc(etiqueta)}">
+      ${icon(nombreIcono, 'w-4 h-4')}
+    </button>`;
+
   return `
-  <header class="flex flex-wrap items-center justify-between gap-y-2 px-4 sm:px-6 py-3 bg-white border-b border-[#EAEAEA] min-h-16 shrink-0 sticky top-0 z-30 shadow-xs">
-    <div class="flex items-center gap-3 min-w-0">
-      <button type="button" data-action="volver-inicio"
-              class="p-2 -ml-1 rounded-lg text-[#57534E] hover:text-[#111111] hover:bg-[#F3F2EF] transition-colors shrink-0"
-              title="Volver a la portada" aria-label="Volver a la portada">
-        ${icon('arrow-left', 'w-4 h-4')}
-      </button>
-      <img src="${LOGO_SPLASH}" alt="Góndola Inteligente" class="h-10 sm:h-14 w-auto shrink-0" />
-      <div class="min-w-0">
-        <div class="flex items-baseline gap-2">
-          <h1 class="text-lg sm:text-xl font-bold tracking-tight text-[#111111] truncate">CodeBolts</h1>
-          <span class="text-[11px] font-medium text-[#787774] hidden sm:inline">v2.4.0</span>
-        </div>
-        <p class="text-[11px] text-[#787774] hidden sm:block truncate">Góndola Inteligente · Métricas de flujo, permanencia y planogramas</p>
-      </div>
-    </div>
-    <div class="flex items-center gap-3 shrink-0">
-      <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#EDF3EC] text-[#346538] border border-[#C7D6C5] text-xs font-semibold"
-           title="El sistema no realiza reconocimiento facial ni almacena datos personales de clientes.">
-        ${icon('shield-check', 'w-3.5 h-3.5 text-[#346538] shrink-0')}
-        <span>100% Anónimo · Sin Biometría</span>
-      </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 bg-[#F3F2EF] rounded-md border border-[#EAEAEA] text-xs shrink-0 whitespace-nowrap">
-        ${statusHtml}
-        <div class="h-3 w-px bg-[#D6D3D1]"></div>
-        <button type="button" data-action="toggle-dark-mode"
-                class="p-0.5 hover:bg-[#EAEAEA] rounded text-[#57534E] hover:text-[#111111] transition-colors"
-                title="${state.darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}" aria-label="Cambiar modo claro/oscuro">
-          ${icon(state.darkMode ? 'sun' : 'moon', 'w-3.5 h-3.5')}
+  <header class="sticky top-0 z-30 shrink-0 bg-white border-b border-[#EAEAEA]">
+    <!-- Filo de acento: ancla el cian de la marca en la parte mas alta de
+         la pantalla y separa la barra del lienzo sin una segunda sombra. -->
+    <div style="height:2px;background:linear-gradient(90deg,var(--accent) 0%,var(--accent-2) 46%,transparent 92%)"></div>
+    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 sm:px-6 py-2.5 min-h-16">
+      <div class="flex items-center gap-3 min-w-0">
+        <button type="button" data-action="volver-inicio"
+                class="w-9 h-9 -ml-1 inline-flex items-center justify-center rounded-lg text-[#57534E] hover:text-[#111111] hover:bg-[#EAEAEA] shrink-0"
+                title="Volver a la portada" aria-label="Volver a la portada">
+          ${icon('arrow-left', 'w-4 h-4')}
         </button>
-        ${ES_DESPLIEGUE_PUBLICO ? '' : `
-        <button type="button" data-action="open-settings"
-                class="p-0.5 hover:bg-[#EAEAEA] rounded text-[#57534E] hover:text-[#111111] transition-colors"
-                title="Configuración de conexión con la API" aria-label="Configuración de la API">
-          ${icon('sliders', 'w-3.5 h-3.5')}
-        </button>`}
+        <img src="${LOGO_SPLASH}" alt="" class="h-9 sm:h-11 w-auto shrink-0" />
+        <div class="min-w-0">
+          <!-- El producto es el titulo; el equipo y la version van debajo,
+               en la linea de credito. Antes "CodeBolts" era el <h1> y
+               "Góndola Inteligente" quedaba enterrado en la letra chica. -->
+          <h1 class="text-base sm:text-lg font-bold tracking-[-0.02em] text-[#111111] truncate leading-tight">Góndola Inteligente</h1>
+          <p class="text-[11px] truncate leading-tight mt-0.5">
+            <span class="marca-equipo">CodeBolts</span>
+            <span class="hidden md:inline text-[#787774]"> · v2.4.0</span>
+          </p>
+        </div>
+
+        <!-- Navegacion de verdad, no botones sueltos por la pantalla.
+             Antes "Comparar dos videos" vivia entre los botones de la barra
+             de herramientas, mezclado con Subir/PDF/Excel -acciones- pese a
+             ser un CAMBIO DE VISTA. Aqui queda claro donde estas parado, y
+             la pastilla se desplaza de una opcion a otra en vez de saltar.
+             Las dos acciones (cerrar-comparacion / abrir-comparacion) ya
+             existian; esto solo les da un sitio decente. -->
+        <nav class="seg hidden sm:grid ml-1 lg:ml-3 shrink-0" aria-label="Vistas">
+          <span class="seg-pill" style="transform:translateX(${state.mostrandoComparacion ? '100%' : '0'})"></span>
+          <button type="button" class="seg-btn" data-action="cerrar-comparacion"
+                  aria-current="${state.mostrandoComparacion ? 'false' : 'page'}">
+            ${icon('layout-grid', 'w-3.5 h-3.5')} Panel
+          </button>
+          <button type="button" class="seg-btn" data-action="abrir-comparacion"
+                  aria-current="${state.mostrandoComparacion ? 'page' : 'false'}">
+            ${icon('trending-up', 'w-3.5 h-3.5')} Comparar
+          </button>
+        </nav>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="hidden lg:flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-[#EDF3EC] text-[#346538] border border-[#C7D6C5] text-[11px] font-bold"
+             title="El sistema no realiza reconocimiento facial ni almacena datos personales de clientes.">
+          ${icon('shield-check', 'w-3.5 h-3.5 text-[#346538] shrink-0')}
+          <span>100% anónimo · sin biometría</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 h-9 rounded-lg bg-[#F3F2EF] border border-[#EAEAEA] shrink-0 whitespace-nowrap">
+          ${statusHtml}
+        </div>
+        ${iconBtn('toggle-dark-mode',
+                  state.darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+                  'Cambiar modo claro/oscuro',
+                  state.darkMode ? 'sun' : 'moon')}
+        ${ES_DESPLIEGUE_PUBLICO ? '' : iconBtn('open-settings', 'Configuración de conexión con la API', 'Configuración de la API', 'sliders')}
       </div>
     </div>
   </header>`;
@@ -213,7 +254,7 @@ function renderVideoSelector() {
           ${icon(state.isDeletingVideo ? 'refresh-cw' : 'trash', `w-3.5 h-3.5 ${state.isDeletingVideo ? 'animate-spin' : ''}`)} ${state.isDeletingVideo ? 'Borrando…' : 'Eliminar'}
         </button>` : ''}
         <button type="button" data-action="abrir-comparacion"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F3F2EF] hover:bg-[#EAEAEA] rounded-md border border-[#EAEAEA] text-xs font-semibold text-[#2F3437] transition-colors">
+                class="sm:hidden inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F3F2EF] hover:bg-[#EAEAEA] rounded-md border border-[#EAEAEA] text-xs font-semibold text-[#2F3437]">
           ${icon('trending-up', 'w-3.5 h-3.5 text-[#1F6C9F]')} Comparar dos videos
         </button>
         ${ES_DESPLIEGUE_PUBLICO ? '' : `
@@ -239,27 +280,57 @@ function renderVideoSelector() {
   </div>`;
 }
 
-function metricCard({ id, title, value, subtext, badge, tone = 'neutral', tooltip, highlight = false, barColor = '#1F6C9F', progressPercent = 50, countTarget = null }) {
+// Las llamadas a metricCard() pasan el color de la barra como hex literal
+// (heredado de cuando la paleta vivia repartida por el codigo). Un color en
+// `style=""` no lo alcanza ningun selector de clase, asi que se traduce
+// AQUI al token del tema. Asi los 12 sitios que llaman a esta funcion no
+// cambian, y aun asi la barra sigue al tema claro/oscuro.
+const BARRA_A_TOKEN = {
+  '#1F6C9F': 'var(--accent-solid)',
+  '#346538': 'var(--success-bar)',
+  '#B8790B': 'var(--warn-bar)',
+  '#9F2F2D': 'var(--danger-bar)',
+};
+
+function metricCard({ id, title, value, subtext, badge, tone = 'neutral', tooltip, highlight = false, barColor = '#1F6C9F', progressPercent = 50, countTarget = null, icono = 'layers' }) {
   const toneClasses = { accent: 'text-[#346538]', warning: 'text-[#B8790B]', danger: 'text-[#9F2F2D]', info: 'text-[#1F6C9F]', neutral: 'text-[#787774]' };
   const clamped = Math.min(100, Math.max(0, progressPercent));
+  const barra = BARRA_A_TOKEN[barColor] || 'var(--accent)';
+  // tracking-[-0.03em]: las cifras grandes piden mas apretado que el texto.
+  // tabular-nums evita que el numero "salte" de ancho mientras cuenta.
+  const claseValor = 'font-data text-[26px] sm:text-[30px] leading-none font-semibold tracking-[-0.03em] text-[#111111]';
   const valueHtml = countTarget !== null
-    ? `<span class="text-2xl sm:text-3xl font-bold tracking-tight text-[#111111] tabular-nums" data-count-target="${countTarget}">0</span>`
-    : `<span class="text-2xl sm:text-3xl font-bold tracking-tight text-[#111111] tabular-nums">${value}</span>`;
+    ? `<span class="${claseValor}" data-count-target="${countTarget}">0</span>`
+    : `<span class="${claseValor}">${value}</span>`;
+  // Insignia de color por metrica: cada tarjeta se reconoce de un vistazo
+  // por su icono, en vez de ser seis rectangulos identicos. El color sale
+  // del MISMO token que su barra, asi que insignia y barra siempre dicen lo
+  // mismo -no es decoracion suelta.
+  const insignia = `
+    <span class="metric-insignia shrink-0" style="--c:${barra}">${icon(icono, 'w-4 h-4')}</span>`;
+
   return `
-  <div id="${id}" class="p-4 rounded-xl border card-lift flex flex-col justify-between shadow-xs ${highlight ? 'bg-white border-[#1F6C9F]/40 ring-1 ring-[#1F6C9F]/20' : 'bg-white border-[#EAEAEA]'}">
-    <div class="flex items-center justify-between gap-1 mb-1">
-      <span class="text-[10px] font-bold text-[#787774] uppercase tracking-[0.1em] truncate" title="${esc(title)}">${esc(title)}</span>
+  <div id="${id}" class="metric-card p-4 rounded-xl border card-lift flex flex-col justify-between bg-white ${highlight ? 'border-[#1F6C9F]/40 ring-1 ring-[#1F6C9F]/20' : 'border-[#EAEAEA]'}"
+       style="--c:${barra}${highlight ? ';box-shadow:0 0 0 1px var(--accent-ring), var(--shadow-card)' : ''}">
+    <div class="flex items-start justify-between gap-1.5 mb-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        ${insignia}
+        <span class="text-[10px] font-bold text-[#787774] uppercase tracking-[0.12em] leading-tight" title="${esc(title)}">${esc(title)}</span>
+      </div>
       ${tooltip ? infoButton(title, tooltip) : ''}
     </div>
-    <div class="my-1">
-      <div class="flex items-baseline gap-2">
+    <div>
+      <div class="flex items-baseline gap-2 flex-wrap">
         ${valueHtml}
-        ${badge ? `<span class="text-xs font-medium truncate ${toneClasses[tone]}">${esc(badge)}</span>` : ''}
+        ${badge ? `<span class="text-[11px] font-semibold truncate ${toneClasses[tone]}">${esc(badge)}</span>` : ''}
       </div>
-      <p class="text-[11px] text-[#787774] truncate mt-0.5" title="${esc(subtext)}">${esc(subtext)}</p>
+      <p class="text-[11px] text-[#787774] truncate mt-1.5" title="${esc(subtext)}">${esc(subtext)}</p>
     </div>
-    <div class="w-full bg-[#F3F2EF] h-1 rounded-full overflow-hidden mt-2">
-      <div class="h-full w-full kpi-bar rounded-full" style="transform:scaleX(${clamped / 100});background-color:${barColor}"></div>
+    <!-- La barra no es adorno: es el valor situado contra su propio techo.
+         El riel se ve siempre, para que "casi vacio" se distinga de "sin
+         dato" -antes con 0% no se veia nada y parecia que faltaba algo. -->
+    <div class="w-full h-1.5 rounded-full overflow-hidden mt-3" style="background:var(--surface-3)">
+      <div class="h-full w-full kpi-bar rounded-full" style="transform:scaleX(${clamped / 100});background:${barra}"></div>
     </div>
   </div>`;
 }
@@ -295,4 +366,62 @@ function renderVideoPlayer() {
     </div>
     <div id="video-player-placeholder" class="w-full rounded-lg bg-[#0B1220]" style="height:400px"></div>
   </div>`;
+}
+
+// --------------------------------------------------------------------------
+// Barra lateral de secciones del panel.
+//
+// Antes el panel era UN scroll larguisimo con todo apilado -resumen, zonas,
+// mapa de calor, video, retroalimentacion-, y para llegar al mapa de calor
+// habia que bajar media pantalla. Ahora cada bloque es una seccion que se
+// elige aqui.
+//
+// Las secciones NO se montan y desmontan: se pintan todas y se oculta la
+// que no esta activa (ver .panel-seccion en css/estilos.css). Dos motivos
+// concretos: el reporte en PDF (window.print()) imprime la pantalla tal
+// cual, y con secciones desmontadas saldria solo la activa -perderia la
+// mitad del reporte-; y el <video> del reproductor vive en un portal que se
+// posiciona midiendo su hueco, asi que el hueco tiene que existir.
+// --------------------------------------------------------------------------
+const SECCIONES_PANEL = [
+  { id: 'video',    nombre: 'Video',         icono: 'video-camera', pie: 'Render anonimizado' },
+  { id: 'resumen',  nombre: 'Resumen',       icono: 'layout-grid',  pie: 'Métricas del video' },
+  { id: 'zonas',    nombre: 'Zonas',         icono: 'layers',       pie: 'Góndola y estantes' },
+  { id: 'mapa',     nombre: 'Mapa de calor', icono: 'map',          pie: 'Dónde circula la gente' },
+  { id: 'reportes', nombre: 'Reportes',      icono: 'table',        pie: 'Cómo leer los números' },
+];
+
+function renderNavSecciones() {
+  const activa = state.panelSeccion;
+  const items = SECCIONES_PANEL.map((s) => {
+    const esActiva = s.id === activa;
+    return `
+      <button type="button" data-action="ir-seccion" data-seccion="${s.id}"
+              class="nav-item ${esActiva ? 'nav-item-activo' : ''}"
+              ${esActiva ? 'aria-current="page"' : ''}>
+        <span class="nav-item-icono">${icon(s.icono, 'w-4 h-4')}</span>
+        <span class="min-w-0">
+          <span class="nav-item-nombre">${s.nombre}</span>
+          <span class="nav-item-pie">${s.pie}</span>
+        </span>
+      </button>`;
+  }).join('');
+
+  return `
+  <nav class="no-imprimir panel-nav" aria-label="Secciones del panel">
+    <p class="panel-nav-titulo">Análisis</p>
+    ${items}
+  </nav>`;
+}
+
+// Envuelve el contenido de una seccion. `activa` decide cual se ve; las
+// demas siguen en el DOM (ver el comentario de arriba).
+function seccionPanel(id, contenido) {
+  const activa = state.panelSeccion === id;
+  const meta = SECCIONES_PANEL.find((s) => s.id === id);
+  return `
+  <section class="panel-seccion ${activa ? 'activa' : ''}" data-seccion="${id}"
+           aria-label="${esc(meta ? meta.nombre : id)}">
+    ${contenido}
+  </section>`;
 }

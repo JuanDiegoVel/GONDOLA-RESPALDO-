@@ -8,7 +8,12 @@
 <link rel="icon" href="assets/logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- IBM Plex: dibujada para contexto tecnico/ingenieria. Se eligio sobre
+     la anterior (Plus Jakarta Sans) porque tiene caracter propio -las
+     terminaciones cuadradas, la "a" y la "g"- sin perder legibilidad en
+     tamanos chicos, y porque trae una companera monoespaciada con
+     numerales de ancho fijo para las cifras medidas. -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <!-- Tailwind se sirve LOCAL a proposito, no desde cdn.tailwindcss.com: hay
      redes (campus, corporativas) cuyo DNS se niega a resolver ese dominio
      -"Query refused"-, y sin Tailwind la pagina se ve sin un solo estilo,
@@ -23,10 +28,14 @@
     theme: {
       extend: {
         colors: {
+          // Rampa FRIA (antes era calida, tipo 'stone'). Casi todas estas
+          // clases las reapunta css/estilos.css a un token, pero si alguna
+          // se escapa del mapeo cae en la familia correcta y no en un
+          // beige que desentona con el lienzo azul.
           slate: {
-            50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
-            400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c',
-            800: '#292524', 900: '#1c1917', 950: '#0c0a09',
+            50: '#f2f5fb', 100: '#e9eff9', 200: '#dce5f3', 300: '#b9c7de',
+            400: '#8492ac', 500: '#5a6579', 600: '#46536b', 700: '#1e2939',
+            800: '#131a2b', 900: '#0e1524', 950: '#0b0f1a',
           },
         },
       },
@@ -37,16 +46,15 @@
 <script src="https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/build/heatmap.min.js"></script>
 </head>
 <body class="app-bg text-[#2F3437] antialiased">
-<!-- Fondo animado de constelacion (particulas + lineas), para TODO el
-     dashboard. Vive FUERA de #root a proposito -como el portal del video,
-     ver el comentario de mas abajo-: render() reemplaza el HTML de #root
-     en cada cambio de estado, y si el <canvas> estuviera adentro la
-     animacion se reiniciaria (perdiendo sus particulas) cada vez que el
-     usuario cambia de video o abre un modal. Aqui afuera se crea y arranca
-     UNA sola vez (ver initPageParticles(), en js/particulas.js) y nunca se
-     toca. Fusionado desde una version paralela del dashboard que trajo
-     esta animacion; #root sube a z-index:1 para quedar SIEMPRE encima. -->
-<canvas id="page-particles" style="position:fixed;top:0;left:0;z-index:0;pointer-events:none;"></canvas>
+<!-- El fondo es una malla de degradados ESTATICA, definida en
+     css/estilos.css (.app-bg). Antes aqui vivia un <canvas> con una
+     constelacion de particulas animadas: se retiro a proposito. En un
+     panel de datos lo que se mueve compite con lo que hay que leer, y esa
+     animacion corria un bucle de requestAnimationFrame permanente -con un
+     coste O(n^2) comparando cada particula contra todas las demas para
+     dibujar las lineas- durante todo el tiempo que la pestana estuviera
+     abierta. El fondo de ahora no cuesta nada y no distrae.
+     (js/particulas.js se elimino junto con el <canvas>.) -->
 <div id="root" class="min-h-screen flex flex-col relative" style="z-index:1"></div>
 
 <!-- "Portal" del reproductor de video: vive FUERA de #root a proposito.
@@ -98,7 +106,6 @@
 <script src="js/vista-zonas.js"></script>
 <script src="js/subida.js"></script>
 <script src="js/vista-modales.js"></script>
-<script src="js/particulas.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
