@@ -120,7 +120,22 @@ function render() {
   `;
 
   if (firstPaint) hasAnimatedIn = true;
-  if (state.videoDetail) seccionesAnimadas.add(state.panelSeccion);
+  // No se marca AQUI mismo, de forma sincrona: al elegir un video, el
+  // detalle/metricas/zonas/posiciones llegan de fetch() separados que en
+  // localhost pueden resolver a milisegundos uno del otro, y cada uno
+  // dispara su propio render(). Si el primero marcaba la seccion al
+  // toque, el SEGUNDO (llegando antes de que el navegador pintara el
+  // primero) ya salia sin stagger-in: el cascade nunca llegaba a
+  // pintarse, solo el resultado ya asentado -bug real, visto con un
+  // MutationObserver, es la razon de que "saliera todo de golpe" pese a
+  // que la clase si se ponia-. Esperar dos frames de animacion antes de
+  // marcar le da tiempo al navegador a pintar con la clase puesta al
+  // menos una vez; cualquier render que llegue mientras tanto la sigue
+  // trayendo tambien, asi que no se pierde nada.
+  if (state.videoDetail) {
+    const seccion = state.panelSeccion;
+    requestAnimationFrame(() => requestAnimationFrame(() => seccionesAnimadas.add(seccion)));
+  }
   fillCountUps();
 
   // Tailwind (CDN) inyecta el CSS de las clases nuevas de forma asincrona
