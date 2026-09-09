@@ -577,6 +577,24 @@ html.dark select, html.dark option { color-scheme: dark; }
   main { max-width: 100% !important; padding: 0 !important; }
   :root [class~="shadow-xs"], :root [class~="shadow-sm"], :root [class~="shadow-xl"], .shadow-xs { box-shadow: none !important; }
   a[href]:after { content: ''; }
+
+  /* Cada tarjeta (metrica, resumen por zona, recomendacion, tasa de
+     rechazo, privacidad...) entera en una sola pagina: sin esto Chrome
+     corta cualquier tarjeta que caiga justo en el borde de una hoja,
+     dejando el titulo en una pagina y el numero en la siguiente. Todas
+     comparten el mismo par de clases de Tailwind (`rounded-lg`/`rounded-xl`
+     + `border`), asi que se enganchan por ahi en vez de repetir la regla en
+     cada archivo de vista. Un encabezado tampoco se queda solo al pie de
+     una hoja, separado de su contenido. */
+  .panel-seccion [class*="rounded-lg"][class*="border"],
+  .panel-seccion [class*="rounded-xl"][class*="border"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .panel-seccion h1, .panel-seccion h2, .panel-seccion h3, .panel-seccion h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
 }
 
 /* ==========================================================================
