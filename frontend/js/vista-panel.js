@@ -274,9 +274,13 @@ function renderVideoSelector() {
     </div>
     ${errorBox}
   </div>
-  <div class="solo-imprimir" style="margin-bottom:1rem">
-    <h1 style="font-size:1.25rem;font-weight:700">Góndola Inteligente — Reporte de análisis</h1>
-    ${current ? `<p style="font-size:0.8rem;color:#57534E">Video: ${esc(current.source_name || current.video_id)} (${esc(current.video_id)}) — ${isDemo ? 'DATOS DE PRUEBA' : 'Producción real'} — generado ${esc(new Date().toLocaleString('es-CO'))}</p>` : ''}
+  <div class="solo-imprimir" style="margin-bottom:1.5rem;display:flex;align-items:center;gap:0.85rem;border-bottom:2px solid #111111;padding-bottom:0.85rem">
+    <img src="${LOGO_SPLASH}" alt="Góndola Inteligente" style="height:52px;width:auto;flex-shrink:0" />
+    <div>
+      <h1 style="font-size:1.15rem;font-weight:700;margin:0;line-height:1.2">Góndola Inteligente</h1>
+      <p style="font-size:0.75rem;color:#787774;margin:0.15rem 0 0;text-transform:uppercase;letter-spacing:0.05em">Reporte de análisis por video</p>
+      ${current ? `<p style="font-size:0.8rem;color:#57534E;margin:0.35rem 0 0">Video: <strong>${esc(current.source_name || current.video_id)}</strong> (${esc(current.video_id)}) — ${isDemo ? 'DATOS DE PRUEBA' : 'Producción real'} — generado ${esc(new Date().toLocaleString('es-CO'))}</p>` : ''}
+    </div>
   </div>`;
 }
 
