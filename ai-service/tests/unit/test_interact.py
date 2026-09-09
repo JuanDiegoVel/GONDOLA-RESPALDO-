@@ -26,10 +26,13 @@ from gondola.jsonl import read_events, write_events
 from gondola.stages import zones as zones_stage
 from gondola.stages.interact import (
     DURACION_MINIMA_S,
+    LATENCIA_S,
+    MEDIA_VENTANA_S,
     MUESTRAS_MINIMAS_GESTO,
     REFRACTARIO_S,
     STRIDE_MAXIMO_FIABLE,
     UMBRAL_SE_DETIENE_S,
+    VENTANA_MEDIANA_S,
     Muestra,
     Resumen,
     _procesar,
@@ -474,60 +477,77 @@ def test_dos_alcances_muy_seguidos_solo_dejan_el_primero(tmp_path):
 
 
 def test_una_caja_ensanchada_mucho_tiempo_se_vuelve_su_propia_linea_base(tmp_path):
-    """EL TECHO DEL METODO, comprobado: alguien de perfil tres segundos no
-    produce un episodio de tres segundos. La mediana centrada lo alcanza en
-    cuanto el tramo ancho ocupa mas de media ventana, la razon vuelve a 1,0 y
-    el episodio se cierra solo.
+    """EL TECHO DEL METODO, comprobado con la ventana recalibrada (4,0 s):
+    alguien de perfil ocho segundos no produce un episodio de ocho segundos.
+    La mediana centrada lo alcanza en cuanto el tramo ancho ocupa mas de
+    media ventana (2,0 s), la razon vuelve a 1,0 y el episodio se cierra
+    solo -tan solo que ni siquiera llega a candidato: con la ventana ancha
+    ya no queda un borde truncado que contar, la caja ensanchada ES la
+    mediana desde el principio del tramo.
 
     Tiene dos lecturas y las dos importan: es lo que acota la memoria de la
-    cola sin necesidad de un tope de duracion, y es tambien la razon de que un
-    gesto lento (0,5-1,5 s, que es lo que dura tomar algo de verdad) sea
-    invisible para esta etapa.
+    cola sin necesidad de un tope de duracion, y es tambien la razon de que
+    un gesto MUY lento (por encima de ~2,7 s, ver
+    test_un_gesto_lento_no_se_detecta_y_no_deja_rastro_en_ningun_contador)
+    siga siendo invisible para esta etapa aun despues de recalibrar contra
+    el groundtruth del MERL Shopping Dataset -ese groundtruth no tenia
+    gestos tan largos (max medido: 3,50 s, y muy pocos cerca de ese extremo).
     """
-    anchos = [ANCHO_BASE] * 20 + [140.0] * 90 + [ANCHO_BASE] * 20
+    anchos = [ANCHO_BASE] * 150 + [140.0] * 240 + [ANCHO_BASE] * 150
     eventos = secuencia(anchos)
     salida, resumen = procesar(tmp_path, eventos)
 
     assert interacciones(salida) == []
-    assert resumen.descartados_por_duracion == 1  # y no un episodio de 3 s
+    assert resumen.episodios_candidatos == 0  # ni truncado: nunca se abre
     assert len(salida) == len(eventos)  # la cola no se quedo con ninguno
 
 
 def test_un_gesto_lento_no_se_detecta_y_no_deja_rastro_en_ningun_contador(tmp_path):
-    """EL TECHO ESTRUCTURAL DEL METODO, con el mismo gesto a dos velocidades.
+    """EL TECHO ESTRUCTURAL DEL METODO, con el mismo gesto a dos velocidades
+    -recalibrado con VENTANA_MEDIANA_S=4,0 s (antes 1,0 s).
 
     `rampa()` estira el MISMO gesto -misma forma, misma amplitud- en mas
     muestras. Lo unico que cambia es cuanto dura, y eso decide si se ve o no:
 
-        0,37 s  ->  PICK_UP
-        0,50 s  ->  el episodio se forma pero sale truncado y lo descarta el
+        1,67 s  ->  PICK_UP (cubre la mediana real medida en el MERL
+                    Shopping Dataset, 1,27 s: ANTES de recalibrar la ventana
+                    esto caia entero en la zona ciega)
+        2,33 s  ->  el episodio se forma pero sale truncado y lo descarta el
                     filtro de duracion
-        0,63 s  ->  NO SE FORMA NINGUN EPISODIO
+        2,67 s  ->  NO SE FORMA NINGUN EPISODIO
 
     La causa esta en el docstring del modulo: la mediana esta CENTRADA, asi
-    que en cuanto el gesto ocupa mas de la mitad de la ventana (+-0,5 s) la
+    que en cuanto el gesto ocupa mas de la mitad de la ventana (+-2,0 s) la
     mayoria de las muestras que la componen son del propio gesto, la mediana
     sube hasta el y la razon vuelve a 1,0.
 
-    LO GRAVE NO ES QUE NO LO DETECTE, ES QUE NO SE ENTERA: a partir de 0,63 s
+    LO GRAVE NO ES QUE NO LO DETECTE, ES QUE NO SE ENTERA: a partir de 2,67 s
     el contador de episodios candidatos se queda en cero, asi que el gesto
     perdido no aparece en el embudo de descartes que imprime la etapa. Quien
     lea el resumen de una corrida no puede distinguir "no hubo gestos" de
-    "los hubo y fueron demasiado lentos". Un gesto real de tomar un producto
-    dura 0,5-1,5 s (fase 1), o sea que cae entero en esta zona ciega.
+    "los hubo y fueron demasiado lentos". Con la ventana recalibrada esa zona
+    ciega ya no cubre la mediana real (1,27 s) ni el p75 (1,63 s) de los 167
+    gestos anotados del MERL Shopping Dataset -solo la cola mas lenta, por
+    encima del p90 medido (1,95 s)-.
 
     Este test NO comprueba que el comportamiento sea deseable: fija donde
     esta el techo hoy, para que se note si alguien mueve la ventana o el
-    umbral al recalibrar con groundtruth.
+    umbral otra vez sin evidencia nueva.
     """
-    base = [ANCHO_BASE] * 25
+    base = [ANCHO_BASE] * 100
 
-    rapido = secuencia(base + rampa(12) + base)  # 0,37 s
+    rapido = secuencia(base + rampa(50) + base)  # 1,67 s
     salida, resumen = procesar(tmp_path, rapido)
     assert [tipo for _frame, tipo in interacciones(salida)] == ["PICK_UP"]
     assert resumen.episodios_candidatos == 1
 
-    lento = secuencia(base + rampa(20) + base)  # 0,63 s
+    truncado = secuencia(base + rampa(70) + base)  # 2,33 s
+    salida, resumen = procesar(tmp_path, truncado)
+    assert interacciones(salida) == []
+    assert resumen.episodios_candidatos == 1
+    assert resumen.descartados_por_duracion == 1  # se forma pero sale corto
+
+    lento = secuencia(base + rampa(80) + base)  # 2,67 s
     salida, resumen = procesar(tmp_path, lento)
     assert interacciones(salida) == []
     assert resumen.episodios_candidatos == 0  # invisible, no descartado
@@ -782,3 +802,16 @@ def test_la_duracion_minima_sigue_siendo_la_de_la_fase_1():
     """Si alguien la mueve 'a ojo' para que salgan mas eventos, este test lo
     dice: la calibracion real espera al groundtruth (ver CLAUDE.md)."""
     assert DURACION_MINIMA_S == 0.3
+
+
+def test_la_ventana_de_mediana_sigue_siendo_la_recalibrada_con_merl():
+    """VENTANA_MEDIANA_S y LATENCIA_S SI se movieron -a diferencia de
+    DURACION_MINIMA_S arriba-, pero con groundtruth real detras: las
+    etiquetas oficiales del MERL Shopping Dataset (167 gestos reales sobre
+    los 5 clips `video_demo_merl_*`, 0,43-3,50 s, mediana 1,27 s) mostraron
+    que la ventana original de 1,0 s (techo ~0,5 s) era ciega a casi todos.
+    Si alguien la vuelve a mover, que sea con la misma clase de evidencia, no
+    'a ojo' mirando un clip suelto -ver el docstring de VENTANA_MEDIANA_S."""
+    assert VENTANA_MEDIANA_S == 4.0
+    assert MEDIA_VENTANA_S == 2.0
+    assert LATENCIA_S == 2.5

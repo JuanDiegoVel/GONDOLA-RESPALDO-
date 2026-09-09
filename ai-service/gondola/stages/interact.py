@@ -54,6 +54,13 @@ partir del ruido medido. La calibracion real espera a que haya video anotado
 en `data/groundtruth/` (ver CLAUDE.md); hasta entonces no se ajustan "a ojo"
 mirando el video, porque eso es sobreajustar a un clip sin forma de saberlo.
 
+EXCEPCION: VENTANA_MEDIANA_S y LATENCIA_S. Estas dos SI se recalibraron, y SI
+hay groundtruth detras: las etiquetas oficiales del MERL Shopping Dataset
+para los 5 clips `video_demo_merl_*` que ya usa este proyecto. No es "mirar
+el video y ajustar" -es contar, con las anotaciones de terceros, cuanto dura
+de verdad un gesto real, y comparar ese numero contra lo que el metodo podia
+ver-. Ver el detalle en el docstring de cada constante.
+
 POR QUE ESTO NECESITA UNA VENTANA DE LATENCIA
 ----------------------------------------------
 Decidir "este evento es el pico del episodio" exige haber visto los frames
@@ -74,22 +81,34 @@ alcanzaba nunca-, y por eso no existe.
 
 EL TECHO DEL METODO: UN GESTO LARGO SE VUELVE SU PROPIA LINEA BASE
 ------------------------------------------------------------------
-La mediana esta CENTRADA en cada muestra, asi que la ventana de +-0,5 s mira
-por igual hacia atras y hacia delante. En cuanto el gesto ocupa mas de la
-MITAD de la ventana, la mayoria de las muestras que la componen son del propio
-gesto: la mediana sube hasta el, la razon vuelve a 1,0 y el episodio se cierra
-solo. En la practica el metodo solo ve gestos de menos de ~0,5 s.
+La mediana esta CENTRADA en cada muestra, asi que la ventana de
++-MEDIA_VENTANA_S mira por igual hacia atras y hacia delante. En cuanto el
+gesto ocupa mas de la MITAD de la ventana, la mayoria de las muestras que la
+componen son del propio gesto: la mediana sube hasta el, la razon vuelve a
+1,0 y el episodio se cierra solo. En la practica el metodo solo ve gestos de
+menos de ~MEDIA_VENTANA_S segundos.
 
-Eso es coherente con lo medido en la fase 1 (picos de 0,03-0,37 s), pero NO
-con un gesto real de tomar un producto, que dura 0,5-1,5 s. Dicho sin adornos:
-si alguien alcanza el estante despacio, esta etapa no lo va a ver, y no va a
-quedar constancia en ningun contador de descarte porque el episodio no llega
-ni a formarse. Es el limite superior del rasgo, no un bug: es lo que hay que
-recalibrar (ventana y umbral juntos) cuando exista groundtruth.
+RECALIBRADO CONTRA GROUNDTRUTH REAL (no "a ojo"): la fase 1 solo tenia
+`video_001` sin anotar, y con VENTANA_MEDIANA_S=1,0 s (techo ~0,5 s) el
+metodo era ciego a un gesto real de tomar un producto, que mide 0,5-1,5 s.
+Las etiquetas oficiales del MERL Shopping Dataset (`Reach To Shelf` +
+`Retract From Shelf`, ya disponibles para los 5 clips que este proyecto usa
+como `video_demo_merl_*`) dan 167 gestos reales medidos: 0,43-3,50 s,
+mediana 1,27 s, p75 1,63 s, p90 1,95 s, NINGUNO por debajo de 0,3 s. Contra
+esa evidencia, VENTANA_MEDIANA_S subio a 4,0 s (techo ~2,0 s): cubre la
+mediana con margen (2,0/1,27 = 1,6x) y se acerca al p75 sin perseguir la
+cola larga (p90), que exigiria una ventana tan ancha que la mediana dejaria
+de absorber el acercamiento a camara (ver parrafo siguiente). LATENCIA_S
+subio en la misma proporcion para seguir cubriendo MEDIA_VENTANA_S mas el
+margen de cierre de episodio. Ver
+`tests/unit/test_interact.py::test_la_ventana_de_mediana_sigue_siendo_la_recalibrada_con_merl`
+y el comentario de cada constante para el detalle numerico.
 
 Tambien explica por que subir VENTANA_MEDIANA_S no es gratis: alarga el techo
 pero mete en la linea base el cambio de escala que la mediana estaba ahi para
-absorber.
+absorber. 4,0 s es el punto donde eso ya se puede pagar: sigue siendo mas
+corto que "acercarse caminando a la gondola" en los videos medidos, pero ya
+cubre la mayoria de los gestos reales.
 
 LO QUE ESTE ENFOQUE NO PUEDE HACER (resumido; el detalle, en la seccion 5 del
 documento de diseno)
@@ -144,15 +163,25 @@ consecutivos fue de 0,5 % (mediana) y 5-8 % (p95), mientras que la excursion
 maxima del ancho dentro de un track llego a +22 % ... +43 %. Un 12 % queda
 por encima del p95 del ruido y bien por debajo de la senal medida."""
 
-VENTANA_MEDIANA_S = 1.0
+VENTANA_MEDIANA_S = 4.0
 """Ancho de la ventana de la mediana movil, CENTRADA en cada muestra. DE
-DONDE SALE: es la ventana con la que se midieron los cuatro rasgos de la fase
-1 (ancho, alto, area y aspecto). Un segundo es largo comparado con un gesto
-(0,03-0,37 s medidos) y corto comparado con acercarse a la camara, que es
-justo lo que tiene que absorber."""
+DONDE SALE: originalmente 1,0 s (la ventana con la que se midieron los cuatro
+rasgos de la fase 1 sobre `video_001`, sin groundtruth). Ese valor le daba al
+metodo un techo de ~0,5 s de gesto detectable (ver "EL TECHO DEL METODO" en
+el docstring del modulo), y un gesto real de tomar un producto dura 0,5-1,5 s:
+el metodo era ciego a la mayoria.
+
+Recalibrado con groundtruth real: las etiquetas oficiales del MERL Shopping
+Dataset para los 5 clips `video_demo_merl_*` dan 167 gestos reales
+(`Reach To Shelf` + `Retract From Shelf`) de 0,43-3,50 s, mediana 1,27 s, p75
+1,63 s, p90 1,95 s. 4,0 s de ventana (techo ~2,0 s) cubre la mediana con 1,6x
+de margen y se acerca al p75 sin perseguir el p90, que exigiria una ventana
+tan ancha que dejaria de absorber el acercamiento a camara. Ver
+`tests/unit/test_interact.py::test_la_ventana_de_mediana_sigue_siendo_la_recalibrada_con_merl`."""
 
 MEDIA_VENTANA_S = VENTANA_MEDIANA_S / 2
-"""Medio segundo de adelanto es lo que necesita una mediana centrada."""
+"""Lo que necesita de adelanto una mediana centrada: la mitad de
+VENTANA_MEDIANA_S. Con la ventana recalibrada (4,0 s) son 2,0 s."""
 
 MUESTRAS_MINIMAS_MEDIANA = 3
 """Con una o dos muestras la mediana es el propio valor (razon = 1,0) o su
@@ -206,11 +235,16 @@ UN video real, no una cifra validada contra groundtruth (ver
 muestra que hace falta mas o menos, se ajusta con esa evidencia, no a
 ojo."""
 
-LATENCIA_S = 1.0
+LATENCIA_S = MEDIA_VENTANA_S + 0.5
 """Retardo fijo, en segundos de video, entre leer un evento y poder
-escribirlo. Tiene que cubrir el medio segundo de adelanto de la mediana
-centrada mas el cierre del episodio. Ver "POR QUE ESTO NECESITA UNA VENTANA DE
-LATENCIA" en el docstring del modulo."""
+escribirlo. Tiene que cubrir el adelanto de la mediana centrada
+(MEDIA_VENTANA_S) mas un margen para el cierre del episodio. Ver "POR QUE
+ESTO NECESITA UNA VENTANA DE LATENCIA" en el docstring del modulo. DE DONDE
+SALE el margen de 0,5 s: es el mismo que tenia el diseno original
+(LATENCIA_S=1,0 s con MEDIA_VENTANA_S=0,5 s), mantenido al recalibrar
+VENTANA_MEDIANA_S contra groundtruth del MERL Shopping Dataset -no hay
+evidencia nueva que pida cambiar el margen en si, solo la ventana que
+cubre-."""
 
 TOLERANCIA_FLOTANTE_S = 1e-9
 """NO es un margen de calibracion: es lo que hace que un episodio que dura
