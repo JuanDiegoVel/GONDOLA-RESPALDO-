@@ -184,6 +184,28 @@ mismo gesto. Nota para quien calibre: la tolerancia del evaluador es de 2,0 s
 (`gondola/evaluate/evaluator.py`), asi que dos detecciones separadas por menos
 de eso nunca podran ser ambas acierto contra una misma anotacion."""
 
+HUECO_MAXIMO_SIN_ZONA_S = 1.5
+"""Cuanto puede durar un track sin zona (`zone=null`) antes de que volver a
+verlo cuente como una visita NUEVA en vez de la misma de antes. DE DONDE
+SALE: bug real, encontrado con un video subido de verdad (no sintetico):
+alguien se estira hacia el estante para devolver un producto, y mientras
+se estira el pie -lo que zones.py usa para decidir la zona- queda justo en
+el borde del `floor_zone` calibrado. Eso produce parpadeos de deteccion
+(`zone=null` por 1-30 frames seguidos) que zones.py trata como "sali de la
+zona": cada fragmento nuevo arranca su `dwell_time` en 0.0 (ver
+`stages/zones.py`). Sin este hueco de tolerancia, CADA parpadeo se veia
+como "una visita nueva", `alcances_en_visita` se reiniciaba a 0 en cada
+uno, y la convencion de `etiqueta_de_alcance()` (primer alcance PICK_UP,
+segundo PUT_BACK) nunca llegaba al segundo: todo salia PICK_UP, nunca
+PUT_BACK, aunque la misma persona claramente alcanzara el estante dos
+veces. En el video que disparo el bug, el hueco real entre fragmentos del
+mismo gesto llego a 1,17 s; 1.5 s deja margen sin igualar el umbral de
+alguien que de verdad se va y no vuelve pronto. Es un numero informado por
+UN video real, no una cifra validada contra groundtruth (ver
+`umbrales_validados_contra_groundtruth` en el resumen): si otro video real
+muestra que hace falta mas o menos, se ajusta con esa evidencia, no a
+ojo."""
+
 LATENCIA_S = 1.0
 """Retardo fijo, en segundos de video, entre leer un evento y poder
 escribirlo. Tiene que cubrir el medio segundo de adelanto de la mediana
@@ -433,6 +455,8 @@ class EstadoTrack:
     # cuando `dwell_time` baja (eso es zones.py empezando a contar de nuevo).
     zona_visita: tuple[str, str] | None = None
     dwell_previo: float | None = None
+    t_ultima_zona: float | None = None
+    hubo_hueco_desde_ultima_zona: bool = False
     approach_emitido: bool = False
     alcances_en_visita: int = 0
 
@@ -498,13 +522,42 @@ def _mediana_centrada(estado: EstadoTrack, muestra: Muestra) -> float | None:
 def _actualizar_visita(estado: EstadoTrack, muestra: Muestra) -> None:
     """Detecta si esta muestra empieza una visita nueva y reinicia su cuenta.
 
-    Una visita nueva es lo mismo que para la Persona 4: cambio de zona, o un
-    `dwell_time` que baja (zones.py lo reinicia a 0,0 al empezar a contar de
-    nuevo). Es la unidad sobre la que se aplican la convencion de
-    emparejamiento y el "un APPROACH por visita".
+    Una visita nueva es zona distinta, el track fuera de CUALQUIER zona por
+    mas de HUECO_MAXIMO_SIN_ZONA_S antes de volver a verse en zona, o un
+    `dwell_time` que baja SIN que haya habido ningun hueco de por medio
+    (zones.py empezando a contar de nuevo por su cuenta, sin que este track
+    llegara a perderse). Es la unidad sobre la que se aplican la convencion
+    de emparejamiento y el "un APPROACH por visita".
+
+    Una muestra SIN zona (`muestra.zona is None`) no cuenta nada: ni cierra
+    la visita en curso ni la reinicia, solo se ignora -ver el docstring de
+    HUECO_MAXIMO_SIN_ZONA_S sobre por que un parpadeo de deteccion de unos
+    pocos frames no puede tratarse como "se fue y volvio"-, pero SI se anota
+    que hubo un hueco: mientras haya habido uno desde la ultima muestra con
+    zona, no se confia en "el dwell_time baja" como señal de visita nueva,
+    porque zones.py reinicia dwell_time a 0,0 en CUALQUIER hueco de
+    deteccion por chiquito que sea (ver stages/zones.py) -sin este freno,
+    esa señal disparaba en cada parpadeo de un solo frame y anulaba por
+    completo la tolerancia de HUECO_MAXIMO_SIN_ZONA_S (bug real, visto con
+    un video subido de verdad: alguien se estira hacia el estante, el pie
+    parpadea un frame fuera del floor_zone calibrado, y el segundo alcance
+    de la misma visita -que deberia salir PUT_BACK- volvia a salir PICK_UP).
     """
-    nueva = muestra.zona != estado.zona_visita
-    if not nueva and muestra.dwell is not None and estado.dwell_previo is not None:
+    if muestra.zona is None:
+        estado.hubo_hueco_desde_ultima_zona = True
+        return
+
+    fuera_de_racha = (
+        estado.t_ultima_zona is not None
+        and muestra.t - estado.t_ultima_zona > HUECO_MAXIMO_SIN_ZONA_S
+    )
+    nueva = muestra.zona != estado.zona_visita or fuera_de_racha
+    if (
+        not nueva
+        and not estado.hubo_hueco_desde_ultima_zona
+        and muestra.dwell is not None
+        and estado.dwell_previo is not None
+    ):
         nueva = muestra.dwell < estado.dwell_previo
 
     if nueva:
@@ -512,6 +565,8 @@ def _actualizar_visita(estado: EstadoTrack, muestra: Muestra) -> None:
         estado.approach_emitido = False
         estado.alcances_en_visita = 0
     estado.dwell_previo = muestra.dwell
+    estado.t_ultima_zona = muestra.t
+    estado.hubo_hueco_desde_ultima_zona = False
 
 
 def _en_refractario(estado: EstadoTrack, t: float, ultimo: float | None) -> bool:
