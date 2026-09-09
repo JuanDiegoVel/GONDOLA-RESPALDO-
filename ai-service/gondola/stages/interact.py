@@ -156,12 +156,31 @@ from gondola.zones_config import ZonesConfig, load_zones_config
 # Umbrales. Cada uno dice de que medicion de la fase 1 sale su valor inicial.
 # --------------------------------------------------------------------------
 
-UMBRAL_RAZON_ASPECTO = 1.12
+UMBRAL_RAZON_ASPECTO = 1.10
 """Cuanto tiene que subir el aspecto sobre la mediana del track para contar
-como alcance. DE DONDE SALE: en la fase 1, el ruido de la caja entre frames
-consecutivos fue de 0,5 % (mediana) y 5-8 % (p95), mientras que la excursion
-maxima del ancho dentro de un track llego a +22 % ... +43 %. Un 12 % queda
-por encima del p95 del ruido y bien por debajo de la senal medida."""
+como alcance. DE DONDE SALE originalmente (fase 1, sin groundtruth): el
+ruido de la caja entre frames consecutivos fue de 0,5 % (mediana) y 5-8 %
+(p95), mientras que la excursion maxima del ancho dentro de un track llego a
++22 % ... +43 %. Un 12 % (valor original) queda por encima del p95 del ruido
+y bien por debajo de la senal medida.
+
+BAJADO a 1,10 CON GROUNDTRUTH REAL: al medir formalmente contra las 84
+anotaciones de `Reach To Shelf` de los 5 clips MERL (ver
+`docs/interact-evaluacion-merl.md` o el commit que agrego esta linea), un
+barrido de 1,08 a 1,16 con VENTANA_MEDIANA_S=4,0 dio:
+
+    1,12 (original)  precision=0,68  recall=0,31  F1=0,426
+    1,10             precision=0,65  recall=0,33  F1=0,441
+    1,09             precision=0,63  recall=0,35  F1=0,446
+
+1,10 se elige y no 1,09: la ganancia de F1 entre ambos es de 0,005 sobre
+apenas 84 eventos anotados, dentro del ruido de una muestra tan chica
+-perseguir esa ultima fraccion es sobreajustar a 5 videos concretos (ver
+"Lo que estos numeros NO dicen" en docs/evaluation.md)-, mientras que
+1,10 vs 1,12 es una ganancia mas clara (+0,015 F1, +3 aciertos) por una
+caida de precision razonable. Si aparece groundtruth nuevo (mas videos,
+o anotado por el equipo), se vuelve a correr el barrido, no se ajusta a
+ojo."""
 
 VENTANA_MEDIANA_S = 4.0
 """Ancho de la ventana de la mediana movil, CENTRADA en cada muestra. DE
