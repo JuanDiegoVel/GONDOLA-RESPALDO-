@@ -43,6 +43,7 @@ archivo) y `localhost`/`127.0.0.1` (el dashboard servido por HTTP).
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import date, datetime
 from pathlib import Path
@@ -241,6 +242,62 @@ def jerarquia_de_zonas(video_id: str) -> list[dict[str, Any]]:
         _requiere_video(conn, video_id)
         filas = db.list_zones_for_video(conn, video_id)
     return [_serializable(f) for f in filas]
+
+
+@app.get("/videos/{video_id}/zones/geometry")
+def geometria_de_zonas(video_id: str) -> dict[str, Any]:
+    """El área de piso (`floor_zone`) de cada estante, en píxeles del frame
+    original -la calibración de cámara que vive en
+    `data/zones/<video_id>.json`, nunca en PostgreSQL (`zones` solo guarda
+    nombre y jerarquía, ver schema.sql: no hay columnas x/y/width/height).
+
+    Existe para que el mapa de calor real del dashboard (coordenadas
+    crudas de GET /videos/{video_id}/positions) pueda dibujar de fondo la
+    misma silueta de góndola -un rectángulo con dos líneas de "estante"-
+    que ya dibuja el render 'privacy' del AI Service (ver
+    ai-service/gondola/video/render.py, `_dibujar_lineas_estante`): sin
+    esa referencia, los puntos de densidad flotan sobre un fondo vacío sin
+    forma de saber a qué estante corresponden.
+
+    `zone_id` de cada estante sale compuesto ("<gondola>:<segment>", igual
+    que arma `_zone_id_de_estante` en importer.py) para que el frontend
+    pueda cruzarlo con el `zone_id` que ya trae GET /videos/{video_id}/zones.
+
+    Lee el JSON directo del disco (no pasa por `gondola.zones_config`: el
+    backend evita a propósito las dependencias pesadas del ai-service, ver
+    el comentario de requirements.txt) -por eso, igual que /render, devuelve
+    404 si el archivo no está: un video puede no tener calibración de zonas
+    en disco todavía, o alguien pudo borrarla con 'python -m gondola purge'."""
+    with db.get_connection() as conn:
+        _requiere_video(conn, video_id)
+    ruta = uploads.ZONES_DIR / f"{video_id}.json"
+    if not ruta.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"El video '{video_id}' no tiene calibración de zonas en disco "
+                f"({ruta}). Sin ese archivo no hay geometría que dibujar."
+            ),
+        )
+    datos = json.loads(ruta.read_text(encoding="utf-8"))
+    estantes = [
+        {
+            "zone_id": f"{gondola['zone_id']}:{estante['segment']}",
+            "gondola_zone_id": gondola["zone_id"],
+            "name": estante["name"],
+            "x": estante["floor_zone"]["x"],
+            "y": estante["floor_zone"]["y"],
+            "width": estante["floor_zone"]["width"],
+            "height": estante["floor_zone"]["height"],
+        }
+        for gondola in datos.get("gondolas", [])
+        for estante in gondola.get("shelves", [])
+    ]
+    return {
+        "frame_width": datos["frame_width"],
+        "frame_height": datos["frame_height"],
+        "shelves": estantes,
+    }
 
 
 @app.get("/videos/{video_id}/render")

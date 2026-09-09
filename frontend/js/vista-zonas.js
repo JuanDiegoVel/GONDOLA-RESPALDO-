@@ -311,13 +311,113 @@ const HEATMAP_ESTILOS = {
 // entrada mas abajo).
 const HUELLA_MAPA = {};
 
+// Silueta de la gondola de fondo: un rectangulo por estante (su floor_zone,
+// ver GET /videos/{id}/zones/geometry en backend/api.py) con las mismas dos
+// lineas horizontales de "estante con niveles" que dibuja el render
+// 'privacy' del AI Service sobre el video anonimizado (ver
+// _dibujar_lineas_estante en ai-service/gondola/video/render.py) -mismo
+// color BLANCO (235,235,235) que usa ese modulo, mismos dos tercios de
+// altura para las lineas-. Sin esto los puntos del mapa flotaban sobre un
+// rectangulo negro liso, sin ninguna referencia de a que estante
+// corresponde cada mancha de densidad.
+//
+// SVG, no <canvas>: es una capa fija que no cambia entre frames (a
+// diferencia del mapa de calor, que si repinta), y un SVG se mantiene nitido
+// a cualquier zoom sin recalcular nada a mano -mismo criterio que el resto
+// del dashboard (ver el comentario de renderPantallaInicio en
+// vista-modales.js: HTML/SVG de verdad, no pixeles-.
+//
+// Se agrega DESPUES de heatmap.js (ver pintarHeatmap, mas abajo), no antes:
+// alguien que no conoce el proyecto veia una mancha roja y no tenia forma
+// de saber a que estante correspondia -pedido explicito, "que muestre que
+// parte de la estanteria es"-. El nombre necesita quedar LEGIBLE encima de
+// la mancha, no debajo, y por eso cada etiqueta lleva un chip solido detras
+// del texto (mismo mecanismo que `_dibujar_zonas` en
+// ai-service/gondola/video/render.py: un rectangulo de color solido antes
+// del texto, no texto suelto sobre lo que sea que haya debajo).
+function _dibujarSiluetaGondola(container, geometry) {
+  if (!geometry || !geometry.shelves || !geometry.shelves.length) return;
+  if (!geometry.frame_width || !geometry.frame_height) return;
+  const scaleX = container.clientWidth / geometry.frame_width;
+  const scaleY = container.clientHeight / geometry.frame_height;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('class', 'absolute inset-0 w-full h-full');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.style.pointerEvents = 'none';
+
+  // Los chips (fondo + texto) se miden y posicionan DESPUES de insertar el
+  // <svg> en el DOM (mas abajo): un <text> sin insertar mide 0 de ancho con
+  // getBBox, igual que cv2.getTextSize necesita una fuente ya cargada.
+  const etiquetas = [];
+
+  geometry.shelves.forEach((s) => {
+    const x = s.x * scaleX, y = s.y * scaleY, w = s.width * scaleX, h = s.height * scaleY;
+
+    const rect = document.createElementNS(svgNS, 'rect');
+    rect.setAttribute('x', x); rect.setAttribute('y', y);
+    rect.setAttribute('width', w); rect.setAttribute('height', h);
+    rect.setAttribute('fill', 'none');
+    rect.setAttribute('stroke', 'rgba(235,235,235,0.65)');
+    rect.setAttribute('stroke-width', '1.5');
+    rect.setAttribute('rx', '2');
+    svg.appendChild(rect);
+
+    [1, 2].forEach((i) => {
+      const ly = y + (h * i) / 3;
+      const linea = document.createElementNS(svgNS, 'line');
+      linea.setAttribute('x1', x + 3); linea.setAttribute('x2', x + w - 3);
+      linea.setAttribute('y1', ly); linea.setAttribute('y2', ly);
+      linea.setAttribute('stroke', 'rgba(235,235,235,0.45)');
+      linea.setAttribute('stroke-width', '1');
+      svg.appendChild(linea);
+    });
+
+    const chip = document.createElementNS(svgNS, 'rect');
+    chip.setAttribute('rx', '3');
+    chip.setAttribute('fill', 'rgba(235,235,235,0.95)');
+    svg.appendChild(chip);
+
+    const texto = document.createElementNS(svgNS, 'text');
+    texto.setAttribute('fill', '#111111');
+    texto.setAttribute('font-size', '11');
+    texto.setAttribute('font-weight', '700');
+    texto.setAttribute('font-family', 'var(--font-ui, system-ui), sans-serif');
+    texto.textContent = s.name;
+    svg.appendChild(texto);
+
+    etiquetas.push({ shelfX: x, shelfY: y, chip, texto });
+  });
+
+  container.appendChild(svg);
+
+  // Igual que `lx = max(0, min(x1, self.ancho - ancho_txt - 8))` en
+  // render.py: sin este recorte, un estante calibrado pegado al borde
+  // derecho dejaba la etiqueta cortada fuera del lienzo.
+  etiquetas.forEach(({ shelfX, shelfY, chip, texto }) => {
+    const caja = texto.getBBox();
+    const padX = 5, padY = 3;
+    const chipW = caja.width + padX * 2;
+    const chipH = caja.height + padY * 2;
+    const chipX = Math.max(0, Math.min(shelfX + 4, container.clientWidth - chipW));
+    const chipY = shelfY + 4;
+    chip.setAttribute('x', chipX); chip.setAttribute('y', chipY);
+    chip.setAttribute('width', chipW); chip.setAttribute('height', chipH);
+    texto.setAttribute('x', chipX + padX);
+    texto.setAttribute('y', chipY + chipH - padY - 1.5);
+  });
+}
+
 // Pinta heatmap.js dentro de #<containerId>. Se llama despues de cada
 // render() (ver app.js), nunca durante: heatmap.js necesita medir el
 // contenedor ya insertado en el DOM (container.clientWidth) para saber a
 // que escala de pixeles pintar. Recibe `positions` aparte (no state
 // directamente) para poder pintar el mapa de CUALQUIER video -el
 // principal o los de la comparacion-, cada uno en su propio contenedor.
-function pintarHeatmap(containerId, positions) {
+// `zonesGeometry` es opcional: sin calibracion de zonas en disco (ver
+// loadZonesGeometry en estado.js) el mapa se pinta igual, solo sin la
+// silueta de fondo.
+function pintarHeatmap(containerId, positions, zonesGeometry) {
   const container = document.getElementById(containerId);
   if (!container || typeof h337 === 'undefined') return;
   const frameWidth = Number(container.dataset.frameWidth);
@@ -357,6 +457,12 @@ function pintarHeatmap(containerId, positions) {
   });
   const max = Math.max(1, ...data.map((d) => d.value));
   heatmap.setData({ max, data });
+
+  // Encima del canvas de heatmap.js (se agrega DESPUES, no antes): la
+  // silueta y sus etiquetas tienen que quedar legibles aunque el punto mas
+  // caliente del mapa caiga justo ahi -ver el docstring de
+  // _dibujarSiluetaGondola, mas arriba-.
+  _dibujarSiluetaGondola(container, zonesGeometry);
 
   // Barrido de izquierda a derecha al pintar, con clip-path (no toca el
   // diseno, asi que el navegador lo resuelve sin recalcular nada). Se

@@ -17,6 +17,7 @@ function bundleDe(slot) {
       metrics: state.zoneMetrics, isLoadingMetrics: state.isLoadingMetrics, errorMetrics: state.errorMetrics,
       hierarchy: state.zoneHierarchy, isLoadingHierarchy: state.isLoadingHierarchy,
       positions: state.positions, isLoadingPositions: state.isLoadingPositions,
+      zonesGeometry: state.zonesGeometry,
       heatmapId: 'positions-heatmap-canvas',
     };
   }
@@ -26,6 +27,7 @@ function bundleDe(slot) {
     metrics: state[`compare${slot}Metrics`], isLoadingMetrics: state[`isLoadingCompare${slot}Metrics`], errorMetrics: null,
     hierarchy: state[`compare${slot}Hierarchy`], isLoadingHierarchy: state[`isLoadingCompare${slot}Hierarchy`],
     positions: state[`compare${slot}Positions`], isLoadingPositions: state[`isLoadingCompare${slot}Positions`],
+    zonesGeometry: state[`compare${slot}ZonesGeometry`],
     heatmapId: `positions-heatmap-canvas-${slot.toLowerCase()}`,
   };
 }

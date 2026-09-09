@@ -66,6 +66,33 @@ const MOCK_POSITIONS = {
   ],
 };
 
+// La calibracion de camara (floor_zone de cada estante) en modo demo:
+// mismo formato que devuelve GET /videos/{id}/zones/geometry, con
+// rectangulos elegidos para caer cerca de las manchas de MOCK_POSITIONS de
+// arriba -asi la silueta de la gondola que dibuja _dibujarSiluetaGondola()
+// (vista-zonas.js) queda donde de verdad hay densidad, no flotando suelta.
+const MOCK_ZONES_GEOMETRY = {
+  video_001: {
+    frame_width: 920, frame_height: 680,
+    shelves: [
+      { zone_id: 'gondola_A:estante_1', gondola_zone_id: 'gondola_A', name: 'Estantería única', x: 100, y: 300, width: 700, height: 250 },
+    ],
+  },
+  video_demo_pasillo_01: {
+    frame_width: 1920, frame_height: 1080,
+    shelves: [
+      { zone_id: 'gondola_pasillo_norte:estante_superior', gondola_zone_id: 'gondola_pasillo_norte', name: 'Estante Superior (Nivel Ojos)', x: 1180, y: 180, width: 620, height: 320 },
+      { zone_id: 'gondola_pasillo_norte:estante_inferior', gondola_zone_id: 'gondola_pasillo_norte', name: 'Estante Inferior (Nivel Suelo)', x: 480, y: 680, width: 620, height: 320 },
+    ],
+  },
+  video_demo_cabecera: {
+    frame_width: 1280, frame_height: 720,
+    shelves: [
+      { zone_id: 'cabecera_isla:estante_1', gondola_zone_id: 'cabecera_isla', name: 'Isla de Oferta Estacional', x: 150, y: 250, width: 900, height: 400 },
+    ],
+  },
+};
+
 const MOCK_METRICS = {
   video_001: [{ zone_id: 'gondola_A', name: 'Estanteria unica (camara cenital)', level: 'gondola', product_category: null, window_start_s: 0.0, window_end_s: 202.633, people_count: 16, interaction_count: 17, pick_up_count: 1, put_back_count: 0, average_dwell_time_s: 7.8689494, interaction_rate: 0.875, pick_up_rate: 0.0588235, conversion_rate: 0.0625 }],
   video_demo_pasillo_01: [

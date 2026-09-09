@@ -148,10 +148,10 @@ function render() {
   // haya pintado con los estilos puestos antes de medir nada.
   requestAnimationFrame(() => requestAnimationFrame(() => {
     if (state.mostrandoComparacion) {
-      pintarMapaAunqueOculto('positions-heatmap-canvas-a', state.compareAPositions);
-      pintarMapaAunqueOculto('positions-heatmap-canvas-b', state.compareBPositions);
+      pintarMapaAunqueOculto('positions-heatmap-canvas-a', state.compareAPositions, state.compareAZonesGeometry);
+      pintarMapaAunqueOculto('positions-heatmap-canvas-b', state.compareBPositions, state.compareBZonesGeometry);
     } else {
-      pintarMapaAunqueOculto('positions-heatmap-canvas', state.positions);
+      pintarMapaAunqueOculto('positions-heatmap-canvas', state.positions, state.zonesGeometry);
     }
     initVideoPlayer();
     initLienzoZonas();
@@ -189,10 +189,10 @@ function exportarReportePDF() {
   document.body.classList.add('destapar-secciones');
   void document.body.offsetHeight;   // fuerza el recalculo antes de medir
   if (state.mostrandoComparacion) {
-    pintarHeatmap('positions-heatmap-canvas-a', state.compareAPositions);
-    pintarHeatmap('positions-heatmap-canvas-b', state.compareBPositions);
+    pintarHeatmap('positions-heatmap-canvas-a', state.compareAPositions, state.compareAZonesGeometry);
+    pintarHeatmap('positions-heatmap-canvas-b', state.compareBPositions, state.compareBZonesGeometry);
   } else {
-    pintarHeatmap('positions-heatmap-canvas', state.positions);
+    pintarHeatmap('positions-heatmap-canvas', state.positions, state.zonesGeometry);
   }
   try {
     window.print();
@@ -202,13 +202,13 @@ function exportarReportePDF() {
   }
 }
 
-function pintarMapaAunqueOculto(containerId, positions) {
+function pintarMapaAunqueOculto(containerId, positions, zonesGeometry) {
   const cont = document.getElementById(containerId);
   if (!cont) return;
   const seccion = cont.closest('.panel-seccion');
   const oculta = seccion && !seccion.classList.contains('activa');
   if (oculta) seccion.style.display = 'block';
-  pintarHeatmap(containerId, positions);
+  pintarHeatmap(containerId, positions, zonesGeometry);
   if (oculta) seccion.style.display = '';
 }
 
