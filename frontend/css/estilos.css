@@ -206,12 +206,12 @@ html.dark .app-bg::before {
 
 /* --- Estrellas cayendo -------------------------------------------------
    Pedido a proposito por el equipo, con la misma condicion que ya sigue el
-   resto del fondo: nada de <canvas> ni de bucle en JS -6 elementos fijos,
-   CSS puro (transform+opacity, GPU)-. "Pocas, que no abrume": cada estrella
-   solo es visible durante el primer tercio de su propio ciclo (ver el
-   keyframe) y el ciclo dura 25-38 s -desfasados a proposito por estrella-,
-   asi que casi nunca coinciden dos a la vez en pantalla, y el resto del
-   tiempo no hay nada corriendo que valga la pena pintar. */
+   resto del fondo: nada de <canvas> ni de bucle en JS -14 elementos fijos,
+   CSS puro (transform+opacity, GPU)-. Primera version: 6 estrellas cada
+   25-38s, "casi nunca se ve ninguna" (feedback real). Subido a 14 con
+   ciclos de 7-14s: cada una sigue visible solo su primer tercio de ciclo,
+   pero al ser ciclos cortos y quedar entrelazados, normalmente hay 2-4 a
+   la vez en pantalla -lluvia real, sin llegar a ventisca-. */
 .estrellas { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .estrella {
   position: absolute;
@@ -235,12 +235,20 @@ html.dark .app-bg::before {
   34%  { opacity: 0; transform: translate3d(var(--deriva, 20px), 104vh, 0); }
   100% { opacity: 0; transform: translate3d(var(--deriva, 20px), 104vh, 0); }
 }
-.estrella:nth-child(1) { left: 8%;  --deriva: 26px; animation-duration: 27s; animation-delay: 0s;   }
-.estrella:nth-child(2) { left: 24%; --deriva: -18px; animation-duration: 33s; animation-delay: 9s;  }
-.estrella:nth-child(3) { left: 41%; --deriva: 22px; animation-duration: 29s; animation-delay: 18s; }
-.estrella:nth-child(4) { left: 63%; --deriva: -24px; animation-duration: 38s; animation-delay: 5s; }
-.estrella:nth-child(5) { left: 79%; --deriva: 16px; animation-duration: 31s; animation-delay: 22s; }
-.estrella:nth-child(6) { left: 92%; --deriva: -20px; animation-duration: 36s; animation-delay: 14s; }
+.estrella:nth-child(1)  { left: 4%;  --deriva: 22px;  animation-duration: 9s;  animation-delay: 0s;    }
+.estrella:nth-child(2)  { left: 11%; --deriva: -16px; animation-duration: 12s; animation-delay: 3.5s;  }
+.estrella:nth-child(3)  { left: 19%; --deriva: 18px;  animation-duration: 8s;  animation-delay: 6.5s;  }
+.estrella:nth-child(4)  { left: 27%; --deriva: -20px; animation-duration: 13s; animation-delay: 1.5s;  }
+.estrella:nth-child(5)  { left: 35%; --deriva: 14px;  animation-duration: 10s; animation-delay: 8s;    }
+.estrella:nth-child(6)  { left: 43%; --deriva: -18px; animation-duration: 7s;  animation-delay: 4.5s;  }
+.estrella:nth-child(7)  { left: 51%; --deriva: 24px;  animation-duration: 14s; animation-delay: 10s;   }
+.estrella:nth-child(8)  { left: 58%; --deriva: -14px; animation-duration: 9s;  animation-delay: 2s;    }
+.estrella:nth-child(9)  { left: 65%; --deriva: 20px;  animation-duration: 11s; animation-delay: 7s;    }
+.estrella:nth-child(10) { left: 72%; --deriva: -22px; animation-duration: 8s;  animation-delay: 5s;    }
+.estrella:nth-child(11) { left: 79%; --deriva: 16px;  animation-duration: 13s; animation-delay: 11.5s; }
+.estrella:nth-child(12) { left: 86%; --deriva: -18px; animation-duration: 10s; animation-delay: 0.8s;  }
+.estrella:nth-child(13) { left: 92%; --deriva: 20px;  animation-duration: 7s;  animation-delay: 9s;    }
+.estrella:nth-child(14) { left: 97%; --deriva: -16px; animation-duration: 12s; animation-delay: 6s;    }
 @media (prefers-reduced-motion: reduce) { .estrellas { display: none; } }
 @media print { .estrellas { display: none; } }
 
