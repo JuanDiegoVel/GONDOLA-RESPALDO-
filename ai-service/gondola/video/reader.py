@@ -89,6 +89,25 @@ class VideoReader:
 
         self.info = self._leer_info()
 
+        # `info.frame_count` sale de CAP_PROP_FRAME_COUNT, leido del ENCABEZADO
+        # del contenedor ANTES de decodificar nada -y ese numero puede estar
+        # mal: algunos contenedores (frecuente en video de celular reencodeado,
+        # WhatsApp, o VFR) reportan un total distinto del que de verdad se
+        # puede leer. `frames()` mas abajo NUNCA confia en ese numero para
+        # saber cuando parar -su condicion de fin es que `grab()` falle, la
+        # unica fuente de verdad real-, asi que aqui se lleva la cuenta de
+        # cuantos frames se grabaron DE VERDAD para que quien llame pueda
+        # preferir ese numero sobre el del encabezado. Ver frames_reales_vistos.
+        self.ultimo_indice_grabado = -1
+
+    @property
+    def frames_reales_vistos(self) -> int:
+        """Cuantos frames se grabaron de verdad en la ultima pasada por
+        `frames()` (0 si todavia no se recorrio el video). A diferencia de
+        `info.frame_count`, esto no viene de un encabezado que puede
+        mentir: es la cuenta real de grab() exitosos."""
+        return self.ultimo_indice_grabado + 1
+
     def _leer_info(self) -> VideoInfo:
         """Lee las propiedades del video y comprueba que tengan sentido."""
         import cv2
@@ -149,6 +168,7 @@ class VideoReader:
             # esto ahorra bastante trabajo.
             if not self._cap.grab():
                 break  # fin del video
+            self.ultimo_indice_grabado = indice
 
             if indice % stride == 0:
                 ok, frame = self._cap.retrieve()

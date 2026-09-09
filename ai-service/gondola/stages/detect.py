@@ -360,8 +360,6 @@ def run(cfg: Config, abrir_video: bool = False) -> int:
         # comprobar que las cajas caben y que los timestamps cuadran.
         dimensiones = (video.info.width, video.info.height)
         fps_video = video.info.fps
-        frame_count_video = video.info.frame_count
-        duration_s_video = video.info.duration_s
 
         inicio = time.perf_counter()
         with Renderer(video_salida, cfg.render_mode, video.info.width,
@@ -371,6 +369,27 @@ def run(cfg: Config, abrir_video: bool = False) -> int:
                 _eventos_del_video(modelo, ids_persona, video, cfg, resumen, renderer),
             )
         transcurrido = time.perf_counter() - inicio
+
+        # frame_count_video/duration_s_video se leen DESPUES de recorrer el
+        # video entero, no de video.info (el encabezado del contenedor,
+        # leido antes de decodificar nada). Bug real, visto con video de
+        # celular subido de verdad: el encabezado decia 3657 frames, el
+        # archivo de verdad tenia 3780 -4 s de diferencia entre la duracion
+        # que mostraba el dashboard y la duracion real del reproductor-. Ver
+        # el docstring de VideoReader.frames_reales_vistos.
+        #
+        # Solo se confia en el conteo real cuando MAX_FRAMES no corto la
+        # pasada antes de tiempo (el valor de produccion, 0 = sin limite):
+        # con un limite puesto, `frames_reales_vistos` refleja donde se
+        # detuvo el corte, no donde termina el video de verdad, y usarlo
+        # igual pisaria la duracion real con la del corte -exactamente el
+        # bug que ya paso una vez benchmarkeando con MAX_FRAMES=600-.
+        frame_count_video = (
+            video.frames_reales_vistos
+            if cfg.max_frames == 0 and video.frames_reales_vistos > 0
+            else video.info.frame_count
+        )
+        duration_s_video = frame_count_video / fps_video if fps_video > 0 else 0.0
 
     fps_procesamiento = resumen.frames_procesados / transcurrido if transcurrido > 0 else 0.0
     ruta_resumen = pipeline.summary_path("detect", cfg)
@@ -394,13 +413,23 @@ def _escribir_resumen(destino: Path, cfg: Config, resumen: Resumen,
                       duration_s_video: float) -> None:
     """Guarda las metricas de la corrida. Sin esto no se puede comparar nada.
 
-    `frame_count`/`duration_s` son los del VIDEO COMPLETO (de
-    `VideoReader.info`, via `cv2.CAP_PROP_FRAME_COUNT`), no de cuantos
+    `frame_count`/`duration_s` son los del VIDEO COMPLETO, no de cuantos
     frames se procesaron (`results.frames_procesados`, que puede ser menor
     por `FRAME_STRIDE`/`MAX_FRAMES`) ni de donde hubo detecciones: el
     importador del backend (Persona 7) los prefiere sobre inferirlos del
     ultimo evento del .jsonl, que salia corto cuando el video terminaba con
     el pasillo vacio -bug real, encontrado en la practica-.
+
+    OJO: "el video completo" ya NO significa `VideoReader.info` (el
+    encabezado del contenedor, via `cv2.CAP_PROP_FRAME_COUNT`, leido ANTES
+    de decodificar nada) -ese numero puede estar mal, sobre todo en video
+    de celular/WhatsApp reencodeado, y cuando lo esta la duracion que
+    muestra el dashboard no coincide con la del reproductor real (bug real,
+    visto en la practica: encabezado 3657 frames, video de verdad 3780).
+    Quien llama (`comando_run`/`comando_etapa`) ya recorrio el video entero
+    para cuando llega aqui, asi que pasa el conteo REAL observado
+    (`VideoReader.frames_reales_vistos`) en su lugar, y solo cae de vuelta
+    al encabezado si `MAX_FRAMES` corto la pasada antes de tiempo.
     """
     promedio = (
         resumen.detecciones_totales / resumen.frames_procesados
