@@ -54,7 +54,23 @@
      coste O(n^2) comparando cada particula contra todas las demas para
      dibujar las lineas- durante todo el tiempo que la pestana estuviera
      abierta. El fondo de ahora no cuesta nada y no distrae.
-     (js/particulas.js se elimino junto con el <canvas>.) -->
+     (js/particulas.js se elimino junto con el <canvas>.)
+
+     Las 6 "estrellas cayendo" de aqui abajo son la unica excepcion: motion
+     real, pedida a proposito por el equipo. Se mantienen en el MISMO
+     espiritu que el resto del fondo -nada de <canvas> ni de JS por
+     cuadro-: son 6 elementos fijos, CSS puro (transform+opacity), con
+     ciclos largos y desfasados (25-38s cada una) para que casi nunca
+     coincida mas de una a la vez en pantalla. Ver .estrella en
+     estilos.css. -->
+<div class="estrellas no-imprimir" aria-hidden="true">
+  <span class="estrella"></span>
+  <span class="estrella"></span>
+  <span class="estrella"></span>
+  <span class="estrella"></span>
+  <span class="estrella"></span>
+  <span class="estrella"></span>
+</div>
 <div id="root" class="min-h-screen flex flex-col relative" style="z-index:1"></div>
 
 <!-- "Portal" del reproductor de video: vive FUERA de #root a proposito.
