@@ -356,9 +356,25 @@ function renderVideoPlayer() {
   if (!state.selectedVideoId || isDemoVideo(state.selectedVideoId)) return '';
   // El <video> de verdad NO va aqui adentro: vive en #video-player-portal,
   // FUERA de #root (ver el <body> y el comentario grande en reproductor.js,
-  // junto a initVideoPlayer()). Este div es solo un HUECO -con una altura
-  // fija, para que el portal sepa que tamano ocupar- que reserva el
-  // espacio en el layout normal de la pagina.
+  // junto a initVideoPlayer()). Este div es solo un HUECO que reserva el
+  // espacio en el layout normal de la pagina, para que el portal sepa que
+  // tamano ocupar.
+  //
+  // La proporcion del hueco viene del ANCHO Y ALTO REALES del video -no una
+  // altura fija (400px, como antes)-. Con una altura fija, un video que no
+  // fuera exactamente esa proporcion (16:9 en un hueco pensado para
+  // 920x680, o al reves) dejaba franjas negras a los lados o arriba/abajo:
+  // el <video> respeta su proporcion real aunque se le fuerce a llenar la
+  // caja (asi es como pintan los navegadores un <video>, a diferencia de
+  // un <img>), asi que si la caja no tiene esa misma proporcion, sobra
+  // espacio. Igualando la proporcion del hueco a la del video real, no
+  // sobra nada.
+  //
+  // OJO: width/height NO estan en state.videoDetail (GET /videos/{id} no
+  // los trae, ver backend/api.py) -viven en state.videos, la lista de
+  // GET /videos que ya se uso para armar el desplegable-.
+  const current = state.videos.find((v) => v.video_id === state.selectedVideoId);
+  const aspecto = current && current.width && current.height ? `${current.width} / ${current.height}` : '16 / 9';
   return `
   <div class="no-imprimir bg-white rounded-xl border border-[#EAEAEA] p-4 sm:p-5 shadow-xs">
     <div class="flex items-center gap-2.5 mb-3">
@@ -368,7 +384,7 @@ function renderVideoPlayer() {
         <p class="text-[11px] text-[#787774]">Sin imágenes reales de la tienda — solo la detección</p>
       </div>
     </div>
-    <div id="video-player-placeholder" class="w-full rounded-lg bg-[#0B1220]" style="height:400px"></div>
+    <div id="video-player-placeholder" class="w-full rounded-lg bg-[#0B1220]" style="aspect-ratio:${aspecto};max-height:70vh"></div>
   </div>`;
 }
 
