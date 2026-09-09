@@ -6,6 +6,23 @@
 let hasAnimatedIn = false;
 let lastCountedVideoId = null;
 
+// Que apartados del panel (resumen/zonas/mapa/reportes, ver SECCIONES_PANEL
+// en vista-panel.js) ya mostraron su entrada escalonada al menos una vez.
+// hasAnimatedIn de arriba solo cubre el <main> entero en el primer render de
+// la sesion -y con el panel repartido en pestanas, esa primera vez casi
+// siempre te encuentra parado en 'resumen': las demas pestanas nunca llegan
+// a VERSE en ese instante (estan en display:none), asi que su animacion
+// pasaba de largo sin que nadie la viera. Aqui se guarda, por separado, la
+// primera vez que CADA pestana se vuelve la activa -asi entra escalonada
+// la primera vez que entras a 'zonas', y otra vez la primera vez que entras
+// a 'mapa', aunque sea en la misma sesion-. Igual que hasAnimatedIn, cambiar
+// de video NO la repite (ver el comentario de firstPaint mas abajo): eso lo
+// comunican el conteo de las cifras y el crecimiento de las barras.
+const seccionesAnimadas = new Set();
+function debeAnimarSeccion(id) {
+  return !seccionesAnimadas.has(id) && !!state.videoDetail;
+}
+
 function render() {
   const root = document.getElementById('root');
   // La clase vive en <html>, no en #root: #root se reconstruye entero en
@@ -69,7 +86,7 @@ function render() {
           <h3 class="text-sm font-semibold text-[#2F3437]">Este video no tiene render anonimizado</h3>
           <p class="text-xs text-[#787774] mt-1 max-w-md mx-auto">Los videos de prueba no tienen ninguna grabación detrás. En un video real aparece aquí el render en modo privacidad, sin un solo píxel del original.</p>
         </div>`)}
-      ${seccionPanel('reportes', renderFeedback() || `
+      ${seccionPanel('reportes', renderFeedback(undefined, 'reportes') || `
         <div class="bg-white rounded-xl border border-dashed border-[#D6D3D1] py-16 text-center">
           ${icon('check-circle-2', 'w-8 h-8 text-[#346538] mx-auto mb-3')}
           <h3 class="text-sm font-semibold text-[#2F3437]">Sin advertencias para este video</h3>
@@ -103,6 +120,7 @@ function render() {
   `;
 
   if (firstPaint) hasAnimatedIn = true;
+  if (state.videoDetail) seccionesAnimadas.add(state.panelSeccion);
   fillCountUps();
 
   // Tailwind (CDN) inyecta el CSS de las clases nuevas de forma asincrona
