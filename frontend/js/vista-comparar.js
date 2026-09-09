@@ -24,7 +24,7 @@ function renderFeedback(bundle = bundleDe()) {
         <p class="text-[11px] text-[#787774]">Para entender el resultado sin tener que ver el video completo</p>
       </div>
     </div>
-    <div class="stagger-in space-y-3">${items}</div>
+    <div class="${hasAnimatedIn ? '' : 'stagger-in'} space-y-3">${items}</div>
   </div>`;
 }
 

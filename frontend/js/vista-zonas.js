@@ -187,7 +187,13 @@ function renderZonesSection(bundle = bundleDe(), idPrefix = '') {
         </div>
       </div>`;
     }).join('');
-    body = `<div class="stagger-in grid gap-3.5 ${isSingleZone ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}">${cards}</div>`;
+    // hasAnimatedIn (declarada en app.js) hace que esto entre escalonado
+    // SOLO la primera vez que hay datos en la sesion, igual que el <main>
+    // de app.js: render() repinta TODO en cada setState() -hasta al abrir
+    // un tooltip de info-, y sin este guard la tarjeta volvia a aparecer
+    // de la nada en cada click, no solo al llegar. Ver el comentario junto
+    // a `firstPaint` en app.js.
+    body = `<div class="${hasAnimatedIn ? '' : 'stagger-in'} grid gap-3.5 ${isSingleZone ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}">${cards}</div>`;
   }
 
   return `<section aria-labelledby="zones-heading" class="space-y-3">${header}${body}</section>`;
@@ -482,7 +488,7 @@ function renderZonesHeatmap(bundle = bundleDe()) {
           <span>Menos</span><div class="w-24 h-2 rounded shrink-0" style="background:linear-gradient(90deg,#D6E8F5,#5D9BC9,#0B3B5C)"></div><span>Más</span>
         </div>
       </div>
-      <div class="stagger-in grid gap-3.5 mt-3 ${gondolas.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}">${gondolas.map(gondolaCard).join('')}</div>
+      <div class="${hasAnimatedIn ? '' : 'stagger-in'} grid gap-3.5 mt-3 ${gondolas.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}">${gondolas.map(gondolaCard).join('')}</div>
     </div>
     ${renderRanking()}
   </div>`;
@@ -589,7 +595,7 @@ function renderInsights(bundle = bundleDe()) {
         ${icon('trending-up', 'w-3.5 h-3.5 text-[#1F6C9F]')}<span>Telemetría de video anónima</span>
       </div>
     </div>
-    <div class="stagger-in grid grid-cols-1 gap-3">${cards}</div>
+    <div class="${hasAnimatedIn ? '' : 'stagger-in'} grid grid-cols-1 gap-3">${cards}</div>
   </div>`;
 }
 
