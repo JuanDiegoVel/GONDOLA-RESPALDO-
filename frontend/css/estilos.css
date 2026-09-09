@@ -206,13 +206,24 @@ html.dark .app-bg::before {
 
 /* --- Estrellas cayendo -------------------------------------------------
    Pedido a proposito por el equipo, con la misma condicion que ya sigue el
-   resto del fondo: nada de <canvas> ni de bucle en JS -14 elementos fijos,
-   CSS puro (transform+opacity, GPU)-. Primera version: 6 estrellas cada
-   25-38s, "casi nunca se ve ninguna" (feedback real). Subido a 14 con
-   ciclos de 7-14s: cada una sigue visible solo su primer tercio de ciclo,
-   pero al ser ciclos cortos y quedar entrelazados, normalmente hay 2-4 a
-   la vez en pantalla -lluvia real, sin llegar a ventisca-. */
-.estrellas { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+   resto del fondo: nada de <canvas> ni de bucle en JS -elementos fijos,
+   CSS puro (transform+opacity, GPU)-. Tres rondas de ajuste con feedback
+   real: 6 cada 25-38s (casi invisible) -> 14 cada 7-14s (poco y rapido)
+   -> 50 cada 16-28s con case visible casi todo el ciclo (ver el keyframe:
+   solo se desvanece el 6% inicial y el 6% final), para que se sienta una
+   lluvia real y lenta, no una carrera. La posicion/duracion/delay de cada
+   una vive en `style` inline en index.html (no tiene sentido escribir 50
+   reglas nth-child aqui). */
+/* z-index:2, POR ENCIMA de #root (1): la portada tiene su propio fondo
+   opaco (#0A0713) y crea su propio stacking context (isolation:isolate),
+   asi que con z-index:0 -detras de #root, como el resto del fondo- las
+   estrellas quedaban completamente tapadas ahi, invisibles del todo
+   -bug real, encontrado con captura de pantalla, no solo leyendo el CSS-.
+   Encima de #root SI cruzan sobre las tarjetas del panel de datos, pero
+   son puntos de 2px, sin bloquear clics (pointer-events:none): el costo
+   de legibilidad es minimo comparado con quedar invisibles en la mitad
+   de las pantallas de la app. */
+.estrellas { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
 .estrella {
   position: absolute;
   top: 0;
@@ -230,25 +241,10 @@ html.dark .app-bg::before {
 }
 @keyframes caerEstrella {
   0%   { opacity: 0; transform: translate3d(0, -6vh, 0); }
-  4%   { opacity: 1; }
-  28%  { opacity: 1; }
-  34%  { opacity: 0; transform: translate3d(var(--deriva, 20px), 104vh, 0); }
+  6%   { opacity: 1; }
+  94%  { opacity: 1; }
   100% { opacity: 0; transform: translate3d(var(--deriva, 20px), 104vh, 0); }
 }
-.estrella:nth-child(1)  { left: 4%;  --deriva: 22px;  animation-duration: 9s;  animation-delay: 0s;    }
-.estrella:nth-child(2)  { left: 11%; --deriva: -16px; animation-duration: 12s; animation-delay: 3.5s;  }
-.estrella:nth-child(3)  { left: 19%; --deriva: 18px;  animation-duration: 8s;  animation-delay: 6.5s;  }
-.estrella:nth-child(4)  { left: 27%; --deriva: -20px; animation-duration: 13s; animation-delay: 1.5s;  }
-.estrella:nth-child(5)  { left: 35%; --deriva: 14px;  animation-duration: 10s; animation-delay: 8s;    }
-.estrella:nth-child(6)  { left: 43%; --deriva: -18px; animation-duration: 7s;  animation-delay: 4.5s;  }
-.estrella:nth-child(7)  { left: 51%; --deriva: 24px;  animation-duration: 14s; animation-delay: 10s;   }
-.estrella:nth-child(8)  { left: 58%; --deriva: -14px; animation-duration: 9s;  animation-delay: 2s;    }
-.estrella:nth-child(9)  { left: 65%; --deriva: 20px;  animation-duration: 11s; animation-delay: 7s;    }
-.estrella:nth-child(10) { left: 72%; --deriva: -22px; animation-duration: 8s;  animation-delay: 5s;    }
-.estrella:nth-child(11) { left: 79%; --deriva: 16px;  animation-duration: 13s; animation-delay: 11.5s; }
-.estrella:nth-child(12) { left: 86%; --deriva: -18px; animation-duration: 10s; animation-delay: 0.8s;  }
-.estrella:nth-child(13) { left: 92%; --deriva: 20px;  animation-duration: 7s;  animation-delay: 9s;    }
-.estrella:nth-child(14) { left: 97%; --deriva: -16px; animation-duration: 12s; animation-delay: 6s;    }
 @media (prefers-reduced-motion: reduce) { .estrellas { display: none; } }
 @media print { .estrellas { display: none; } }
 
