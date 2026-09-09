@@ -31,6 +31,7 @@ from gondola.stages.interact import (
     MUESTRAS_MINIMAS_GESTO,
     REFRACTARIO_S,
     STRIDE_MAXIMO_FIABLE,
+    UMBRAL_RAZON_ASPECTO,
     UMBRAL_SE_DETIENE_S,
     VENTANA_MEDIANA_S,
     Muestra,
@@ -60,7 +61,7 @@ CATEGORIAS = {("gondola_A", "estante_1"): "cereales"}
 
 # Rampa de 12 muestras (0,37 s a 30 fps) con un maximo claro en la sexta.
 # Todas dan razon >= 1,18 sobre la linea base de 100 px: por encima del
-# UMBRAL_RAZON_ASPECTO de 1,12, asi que el episodio entra entero.
+# UMBRAL_RAZON_ASPECTO (1,10), asi que el episodio entra entero.
 ALCANCE = [120.0, 124.0, 128.0, 132.0, 136.0, 140.0, 136.0, 132.0, 128.0,
            124.0, 120.0, 118.0]
 
@@ -504,31 +505,34 @@ def test_una_caja_ensanchada_mucho_tiempo_se_vuelve_su_propia_linea_base(tmp_pat
 
 def test_un_gesto_lento_no_se_detecta_y_no_deja_rastro_en_ningun_contador(tmp_path):
     """EL TECHO ESTRUCTURAL DEL METODO, con el mismo gesto a dos velocidades
-    -recalibrado con VENTANA_MEDIANA_S=4,0 s (antes 1,0 s).
+    -recalibrado con VENTANA_MEDIANA_S=4,0 s y UMBRAL_RAZON_ASPECTO=1,10
+    (antes 1,0 s y 1,12).
 
     `rampa()` estira el MISMO gesto -misma forma, misma amplitud- en mas
     muestras. Lo unico que cambia es cuanto dura, y eso decide si se ve o no:
 
         1,67 s  ->  PICK_UP (cubre la mediana real medida en el MERL
-                    Shopping Dataset, 1,27 s: ANTES de recalibrar la ventana
-                    esto caia entero en la zona ciega)
-        2,33 s  ->  el episodio se forma pero sale truncado y lo descarta el
+                    Shopping Dataset, 1,27 s: ANTES de recalibrar esto caia
+                    entero en la zona ciega)
+        3,00 s  ->  el episodio se forma pero sale truncado y lo descarta el
                     filtro de duracion
-        2,67 s  ->  NO SE FORMA NINGUN EPISODIO
+        3,33 s  ->  NO SE FORMA NINGUN EPISODIO
 
     La causa esta en el docstring del modulo: la mediana esta CENTRADA, asi
     que en cuanto el gesto ocupa mas de la mitad de la ventana (+-2,0 s) la
     mayoria de las muestras que la componen son del propio gesto, la mediana
-    sube hasta el y la razon vuelve a 1,0.
+    sube hasta el y la razon vuelve a 1,0. Bajar el umbral corre un poco mas
+    ese punto porque el episodio tolera mas dilucion de la mediana antes de
+    caer por debajo.
 
-    LO GRAVE NO ES QUE NO LO DETECTE, ES QUE NO SE ENTERA: a partir de 2,67 s
+    LO GRAVE NO ES QUE NO LO DETECTE, ES QUE NO SE ENTERA: a partir de 3,33 s
     el contador de episodios candidatos se queda en cero, asi que el gesto
     perdido no aparece en el embudo de descartes que imprime la etapa. Quien
     lea el resumen de una corrida no puede distinguir "no hubo gestos" de
-    "los hubo y fueron demasiado lentos". Con la ventana recalibrada esa zona
-    ciega ya no cubre la mediana real (1,27 s) ni el p75 (1,63 s) de los 167
-    gestos anotados del MERL Shopping Dataset -solo la cola mas lenta, por
-    encima del p90 medido (1,95 s)-.
+    "los hubo y fueron demasiado lentos". Con la ventana y el umbral
+    recalibrados esa zona ciega ya no cubre la mediana real (1,27 s) ni el
+    p90 (1,95 s) de los 167 gestos medidos en el MERL Shopping Dataset -solo
+    el extremo mas lento, cerca del maximo medido (3,50 s)-.
 
     Este test NO comprueba que el comportamiento sea deseable: fija donde
     esta el techo hoy, para que se note si alguien mueve la ventana o el
@@ -541,13 +545,13 @@ def test_un_gesto_lento_no_se_detecta_y_no_deja_rastro_en_ningun_contador(tmp_pa
     assert [tipo for _frame, tipo in interacciones(salida)] == ["PICK_UP"]
     assert resumen.episodios_candidatos == 1
 
-    truncado = secuencia(base + rampa(70) + base)  # 2,33 s
+    truncado = secuencia(base + rampa(90) + base)  # 3,00 s
     salida, resumen = procesar(tmp_path, truncado)
     assert interacciones(salida) == []
     assert resumen.episodios_candidatos == 1
     assert resumen.descartados_por_duracion == 1  # se forma pero sale corto
 
-    lento = secuencia(base + rampa(80) + base)  # 2,67 s
+    lento = secuencia(base + rampa(100) + base)  # 3,33 s
     salida, resumen = procesar(tmp_path, lento)
     assert interacciones(salida) == []
     assert resumen.episodios_candidatos == 0  # invisible, no descartado
@@ -805,13 +809,23 @@ def test_la_duracion_minima_sigue_siendo_la_de_la_fase_1():
 
 
 def test_la_ventana_de_mediana_sigue_siendo_la_recalibrada_con_merl():
-    """VENTANA_MEDIANA_S y LATENCIA_S SI se movieron -a diferencia de
-    DURACION_MINIMA_S arriba-, pero con groundtruth real detras: las
-    etiquetas oficiales del MERL Shopping Dataset (167 gestos reales sobre
-    los 5 clips `video_demo_merl_*`, 0,43-3,50 s, mediana 1,27 s) mostraron
-    que la ventana original de 1,0 s (techo ~0,5 s) era ciega a casi todos.
-    Si alguien la vuelve a mover, que sea con la misma clase de evidencia, no
-    'a ojo' mirando un clip suelto -ver el docstring de VENTANA_MEDIANA_S."""
+    """VENTANA_MEDIANA_S, LATENCIA_S y UMBRAL_RAZON_ASPECTO SI se movieron
+    -a diferencia de DURACION_MINIMA_S arriba-, pero con groundtruth real
+    detras: las etiquetas oficiales del MERL Shopping Dataset. Primero
+    mostraron (167 duraciones reales sobre los 5 clips `video_demo_merl_*`,
+    0,43-3,50 s, mediana 1,27 s) que la ventana original de 1,0 s (techo
+    ~0,5 s) era ciega a casi todos. Despues, con la evaluacion FORMAL de
+    precision/recall (84 eventos `Reach To Shelf` anotados, ver
+    `docs/interact-evaluacion-merl.md`), un barrido de VENTANA_MEDIANA_S
+    confirmo 4,0 como maximo local de F1, y un barrido de
+    UMBRAL_RAZON_ASPECTO encontro que 1,10 mejora F1 sobre el 1,12 original
+    sin sobreajustar a la muestra (1,09 ya no vale la ganancia: ver el
+    docstring de la constante y la tabla completa en ese documento).
+
+    Si alguien vuelve a mover cualquiera de las tres, que sea con la misma
+    clase de evidencia -medida contra groundtruth real, no 'a ojo' mirando
+    un clip suelto-."""
     assert VENTANA_MEDIANA_S == 4.0
     assert MEDIA_VENTANA_S == 2.0
     assert LATENCIA_S == 2.5
+    assert UMBRAL_RAZON_ASPECTO == 1.10
