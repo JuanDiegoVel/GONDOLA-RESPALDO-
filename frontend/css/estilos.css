@@ -172,6 +172,21 @@ html.dark {
   --font-data: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 body { font-family: var(--font-ui); }
+
+/* El reproductor SIN pantalla completa ya llena su hueco exacto -el hueco
+   usa aspect-ratio con el ancho/alto real del video, ver
+   #video-player-placeholder en vista-panel.js-. Pero en pantalla completa
+   el navegador deja de mirar ese hueco: pinta el <video> directo contra la
+   pantalla fisica, y como el video (920x680, o lo que sea) casi nunca
+   coincide con la proporcion panoramica de un monitor, aparecen franjas
+   negras a los lados -pedido explicito del usuario: prefiere recortar los
+   bordes del video a ver esas franjas-. object-fit:cover en pantalla
+   completa hace que el video llene la pantalla entera recortando los
+   bordes en vez de dejar barras; fuera de pantalla completa no se toca
+   nada (el hueco ya tiene la proporcion correcta, no hay nada que
+   recortar). */
+video:fullscreen { object-fit: cover; }
+video:-webkit-full-screen { object-fit: cover; }
 /* Mono SOLO para cifras medidas: no es disfraz de "tecnico", son medidas,
    y sus numerales de ancho fijo evitan que un numero cambie de tamano
    mientras cuenta o descuadre una columna. */
