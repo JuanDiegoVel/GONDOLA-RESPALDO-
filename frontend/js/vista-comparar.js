@@ -2,9 +2,13 @@
 // Parte del dashboard de Gondola Inteligente. Se carga desde index.html
 // como <script> clasico (no modulo ES): ver el comentario de index.html.
 
-function renderFeedback(bundle = bundleDe()) {
+// `seccionId` solo llega con valor desde la pestana 'reportes' del panel
+// principal (app.js); dentro de comparar (que no tiene pestanas) se llama
+// sin el, y cae al hasAnimatedIn de siempre -una sola vez por sesion-.
+function renderFeedback(bundle = bundleDe(), seccionId = null) {
   const notas = generarNotasFeedback(bundle);
   if (!notas.length) return '';
+  const entra = seccionId ? debeAnimarSeccion(seccionId) : !hasAnimatedIn;
 
   const items = notas.slice(0, 4).map((n) => `
     <div class="flex gap-2.5">
@@ -24,7 +28,7 @@ function renderFeedback(bundle = bundleDe()) {
         <p class="text-[11px] text-[#787774]">Para entender el resultado sin tener que ver el video completo</p>
       </div>
     </div>
-    <div class="${hasAnimatedIn ? '' : 'stagger-in'} space-y-3">${items}</div>
+    <div class="${entra ? 'stagger-in' : ''} space-y-3">${items}</div>
   </div>`;
 }
 

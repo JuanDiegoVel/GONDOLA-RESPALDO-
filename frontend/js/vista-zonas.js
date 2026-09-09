@@ -21,6 +21,11 @@ function renderSummaryCards(bundle = bundleDe(), idPrefix = '') {
   const putBackProgress = d.pick_up_count > 0 ? Math.min(100, Math.round((d.put_back_count / d.pick_up_count) * 100)) : 0;
   const dwellProgress = Math.min(100, Math.round(((d.average_dwell_time_s || 0) / 20) * 100));
   const mid = (nombre) => idPrefix ? `metric-${idPrefix}-${nombre}` : `metric-${nombre}`;
+  // Dentro de 'resumen' (sin idPrefix) se anima la primera vez que se
+  // entra a esa pestana en la sesion; dentro de comparar (con idPrefix,
+  // que no tiene pestanas) se anima solo en el primer render de la
+  // sesion, como el resto de esa vista. Ver debeAnimarSeccion() en app.js.
+  const entra = idPrefix ? (!hasAnimatedIn ? 'stagger-in' : '') : (debeAnimarSeccion('resumen') ? 'stagger-in' : '');
 
   return `
   <section aria-labelledby="kpi-summary-heading${idPrefix}" class="space-y-2">
@@ -32,7 +37,7 @@ function renderSummaryCards(bundle = bundleDe(), idPrefix = '') {
          tarjetas ahi dejaban ~110px por tarjeta y los titulos se partian
          ("PICK-/UPS", "TASA / RECHAZO") con los subtextos cortados. Con
          idPrefix (o sea, dentro de comparar) se baja a 2-3 columnas. -->
-    <div class="kpi-grid grid gap-3 sm:gap-4 ${idPrefix ? 'grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}">
+    <div class="kpi-grid ${entra} grid gap-3 sm:gap-4 ${idPrefix ? 'grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}">
       ${metricCard({ id: mid('people-count'), icono: 'users-three', title: 'Tráfico Total', value: formatNumber(d.people_count), countTarget: d.people_count, subtext: 'personas detectadas', badge: '100% Anónimo', tone: 'neutral', barColor: '#1F6C9F', progressPercent: d.people_count > 0 ? 65 : 0, tooltip: 'Conteo de identificadores de seguimiento únicos (track_id temporales) detectados en el área del pasillo.' })}
       ${metricCard({ id: mid('interaction-count'), icono: 'chat-circle-dots', title: 'Interacciones', value: formatNumber(d.interaction_count), countTarget: d.interaction_count, subtext: `${interactionRateVal}% rate`, badge: `${d.people_count > 0 ? (d.interaction_count / d.people_count).toFixed(1) : '0'} / pers`, tone: 'info', barColor: '#1F6C9F', progressPercent: interactionRateVal, tooltip: 'Eventos donde un cliente se detuvo dentro de la zona de atención de la góndola.' })}
       ${metricCard({ id: mid('pick-up-count'), icono: 'hand-grabbing', title: 'Pick-ups', value: formatNumber(d.pick_up_count), countTarget: d.pick_up_count, subtext: 'productos tomados', badge: 'Extracción', tone: 'accent', barColor: '#1F6C9F', progressPercent: pickUpProgress, tooltip: 'Veces que la mano de un cliente tomó un producto de la góndola según el modelo de interacción.' })}
@@ -187,13 +192,12 @@ function renderZonesSection(bundle = bundleDe(), idPrefix = '') {
         </div>
       </div>`;
     }).join('');
-    // hasAnimatedIn (declarada en app.js) hace que esto entre escalonado
-    // SOLO la primera vez que hay datos en la sesion, igual que el <main>
-    // de app.js: render() repinta TODO en cada setState() -hasta al abrir
-    // un tooltip de info-, y sin este guard la tarjeta volvia a aparecer
-    // de la nada en cada click, no solo al llegar. Ver el comentario junto
-    // a `firstPaint` en app.js.
-    body = `<div class="${hasAnimatedIn ? '' : 'stagger-in'} grid gap-3.5 ${isSingleZone ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}">${cards}</div>`;
+    // debeAnimarSeccion('zonas') (declarada en app.js) hace que esto entre
+    // escalonado la primera vez que se entra a la pestana 'zonas' en la
+    // sesion, y no de nuevo en cada repintado -render() repinta TODO en
+    // cada setState(), hasta al abrir un tooltip de info-. Ver el
+    // comentario junto a esa funcion en app.js.
+    body = `<div class="${debeAnimarSeccion('zonas') ? 'stagger-in' : ''} grid gap-3.5 ${isSingleZone ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}">${cards}</div>`;
   }
 
   return `<section aria-labelledby="zones-heading" class="space-y-3">${header}${body}</section>`;
@@ -488,7 +492,7 @@ function renderZonesHeatmap(bundle = bundleDe()) {
           <span>Menos</span><div class="w-24 h-2 rounded shrink-0" style="background:linear-gradient(90deg,#D6E8F5,#5D9BC9,#0B3B5C)"></div><span>Más</span>
         </div>
       </div>
-      <div class="${hasAnimatedIn ? '' : 'stagger-in'} grid gap-3.5 mt-3 ${gondolas.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}">${gondolas.map(gondolaCard).join('')}</div>
+      <div class="${debeAnimarSeccion('zonas') ? 'stagger-in' : ''} grid gap-3.5 mt-3 ${gondolas.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}">${gondolas.map(gondolaCard).join('')}</div>
     </div>
     ${renderRanking()}
   </div>`;
@@ -595,7 +599,7 @@ function renderInsights(bundle = bundleDe()) {
         ${icon('trending-up', 'w-3.5 h-3.5 text-[#1F6C9F]')}<span>Telemetría de video anónima</span>
       </div>
     </div>
-    <div class="${hasAnimatedIn ? '' : 'stagger-in'} grid grid-cols-1 gap-3">${cards}</div>
+    <div class="${debeAnimarSeccion('resumen') ? 'stagger-in' : ''} grid grid-cols-1 gap-3">${cards}</div>
   </div>`;
 }
 
