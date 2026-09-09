@@ -373,6 +373,14 @@ function renderVideoPlayer() {
   // OJO: width/height NO estan en state.videoDetail (GET /videos/{id} no
   // los trae, ver backend/api.py) -viven en state.videos, la lista de
   // GET /videos que ya se uso para armar el desplegable-.
+  //
+  // OJO 2: NO agregar un max-height aqui. Se probo (bug real, reportado
+  // con captura): con max-height Y width:100% a la vez, en una pantalla
+  // ANCHA y BAJA (portatil tipico) el navegador no puede cumplir las dos
+  // cosas -aspect-ratio pediria mas alto de lo que max-height permite-, y
+  // gana max-height: recorta la altura pero deja el ancho al 100%,
+  // rompiendo la proporcion otra vez y trayendo de vuelta las franjas
+  // negras que este mismo bloque existe para quitar.
   const current = state.videos.find((v) => v.video_id === state.selectedVideoId);
   const aspecto = current && current.width && current.height ? `${current.width} / ${current.height}` : '16 / 9';
   return `
@@ -384,7 +392,7 @@ function renderVideoPlayer() {
         <p class="text-[11px] text-[#787774]">Sin imágenes reales de la tienda — solo la detección</p>
       </div>
     </div>
-    <div id="video-player-placeholder" class="w-full rounded-lg bg-[#0B1220]" style="aspect-ratio:${aspecto};max-height:70vh"></div>
+    <div id="video-player-placeholder" class="w-full rounded-lg bg-[#0B1220]" style="aspect-ratio:${aspecto}"></div>
   </div>`;
 }
 
